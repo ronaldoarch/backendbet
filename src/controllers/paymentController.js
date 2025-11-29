@@ -7,8 +7,22 @@ import arkamaService from '../services/arkama.js'
  */
 export const createDeposit = async (req, res) => {
   try {
+    console.log('[PaymentController] Criando depósito:', {
+      user: req.user,
+      body: req.body,
+    })
+
+    // Verificar autenticação
+    if (!req.user || !req.user.id) {
+      console.error('[PaymentController] Usuário não autenticado')
+      return res.status(401).json({
+        error: 'Usuário não autenticado',
+        status: false,
+      })
+    }
+
     const userId = req.user.id
-    const { amount, description } = req.body
+    const { amount, description, gateway } = req.body
 
     // Validações
     if (!amount || amount <= 0) {
@@ -46,6 +60,7 @@ export const createDeposit = async (req, res) => {
                    'https://qoo8wgogo4ow4gsg0k0wk4g4.agenciamidas.com'
 
     // Criar compra na Arkama
+    console.log('[PaymentController] Chamando Arkama API...')
     const arkamaResponse = await arkamaService.createOrder({
       amount: parseFloat(amount).toFixed(2),
       user_email: user.email,
@@ -55,10 +70,18 @@ export const createDeposit = async (req, res) => {
       return_url: `${baseUrl}/wallet?payment=success`,
     })
 
+    console.log('[PaymentController] Resposta da Arkama:', {
+      success: arkamaResponse.success,
+      hasData: !!arkamaResponse.data,
+      error: arkamaResponse.error,
+    })
+
     if (!arkamaResponse.success) {
+      console.error('[PaymentController] Erro na Arkama:', arkamaResponse.error)
       return res.status(500).json({
         error: 'Erro ao criar pagamento',
-        details: arkamaResponse.error,
+        message: arkamaResponse.error || 'Erro desconhecido',
+        details: arkamaResponse.details,
         status: false,
       })
     }
@@ -66,14 +89,16 @@ export const createDeposit = async (req, res) => {
     const orderData = arkamaResponse.data
 
     // Criar registro de transação pendente
+    console.log('[PaymentController] Criando registro de transação...')
     const [result] = await pool.execute(
       `INSERT INTO transactions 
-       (user_id, type, amount, status, payment_method, payment_id, payment_data, created_at, updated_at)
-       VALUES (?, 'deposit', ?, 'pending', 'arkama', ?, ?, NOW(), NOW())`,
+       (user_id, type, amount, currency, gateway, status, payment_id, description, metadata, created_at, updated_at)
+       VALUES (?, 'deposit', ?, 'BRL', 'arkama', 'pending', ?, ?, ?, NOW(), NOW())`,
       [
         userId,
         amount,
         orderData.id || orderData.order_id,
+        description || `Depósito de R$ ${amount.toFixed(2)}`,
         JSON.stringify(orderData),
       ]
     )
@@ -111,9 +136,12 @@ export const createDeposit = async (req, res) => {
     })
   } catch (error) {
     console.error('[PaymentController] Erro ao criar depósito:', error)
+    console.error('[PaymentController] Stack trace:', error.stack)
     res.status(500).json({
       error: 'Erro ao processar depósito',
+      message: error.message || 'Erro desconhecido',
       status: false,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     })
   }
 }
