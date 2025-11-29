@@ -41,6 +41,22 @@ if (process.env.CORS_ORIGIN) {
   allowedOrigins.push(...origins)
 }
 
+// Handler explícito para OPTIONS (preflight) - DEVE VIR ANTES DO RATE LIMITING
+app.options('*', (req, res) => {
+  const origin = req.headers.origin
+  
+  if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+    res.header('Access-Control-Allow-Origin', origin || '*')
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+    res.header('Access-Control-Allow-Credentials', 'true')
+    res.header('Access-Control-Max-Age', '86400') // 24 horas
+    return res.status(204).send()
+  }
+  
+  res.status(403).json({ error: 'CORS not allowed' })
+})
+
 app.use(cors({
   origin: (origin, callback) => {
     // Permitir requisições sem origin (mobile apps, Postman, etc)
@@ -67,16 +83,17 @@ app.use(cors({
   exposedHeaders: ['Content-Type'],
   preflightContinue: false,
   optionsSuccessStatus: 204,
+  maxAge: 86400, // 24 horas
 }))
 
-// Rate limiting
+// Rate limiting - NÃO aplicar a requisições OPTIONS
 const limiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
   max: 60, // 60 requisições por minuto
   message: 'Muitas requisições, tente novamente mais tarde.',
   standardHeaders: true,
   legacyHeaders: false,
-  // Desabilitar validação de trust proxy em desenvolvimento
+  skip: (req) => req.method === 'OPTIONS', // Pular rate limit para OPTIONS
   validate: {
     trustProxy: false,
   },
@@ -88,6 +105,7 @@ const authLimiter = rateLimit({
   message: 'Muitas tentativas de login, tente novamente mais tarde.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS', // Pular rate limit para OPTIONS
   validate: {
     trustProxy: false,
   },
