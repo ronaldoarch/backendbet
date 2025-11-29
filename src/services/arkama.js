@@ -103,11 +103,10 @@ export const createOrder = async (data) => {
     // Converter amount para número e garantir formato correto
     const amountValue = parseFloat(data.amount)
     
-    // A API Arkama pode esperar 'value' ou 'total_value' ao invés de 'amount'
+    // A API Arkama exige 'value' OU 'total_value', mas não ambos
+    // Se enviar 'value', não pode enviar 'total_value'
     const requestBody = {
-      value: amountValue.toFixed(2), // Campo obrigatório
-      total_value: amountValue.toFixed(2), // Campo alternativo
-      amount: amountValue.toFixed(2), // Manter para compatibilidade
+      value: amountValue.toFixed(2), // Campo obrigatório (não enviar total_value quando value está presente)
       user_email: data.user_email,
       user_name: data.user_name || data.user_email,
       description: data.description || 'Depósito na plataforma',
