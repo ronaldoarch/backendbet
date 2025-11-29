@@ -147,6 +147,12 @@ export const playFiverLaunch = async (gameId, userEmail, userBalance, credential
       if (result.data.status === false) {
         const errorMsg = result.data.msg || result.data.error || result.data.message || 'Erro desconhecido da API'
         console.error('[PlayFiver] API retornou erro:', errorMsg)
+        
+        // Tratamento específico para erro de IP
+        if (errorMsg.includes('IP') || errorMsg.includes('ip') || errorMsg.includes('permitido') || errorMsg.includes('Não permitido')) {
+          throw new Error(`IP do servidor não está na whitelist da PlayFiver. Entre em contato com o suporte da PlayFiver para adicionar o IP do servidor à whitelist. Se você está usando Vercel, pode precisar usar um servidor com IP fixo ou solicitar à PlayFiver uma lista de IPs do Vercel. Erro original: ${errorMsg}`)
+        }
+        
         throw new Error(`Erro da API PlayFiver: ${errorMsg}. Verifique as credenciais e o código do jogo.`)
       }
       
@@ -223,6 +229,7 @@ export const getPlayFiverGames = async (credentials) => {
     console.log('[PlayFiver] Buscando lista de jogos disponíveis...')
     
     // Tentar com autenticação no body (conforme padrão da API)
+    // Nota: A API pode retornar erro de IP não permitido se o servidor não estiver na whitelist
     const response = await axios.post(PLAYFIVER_GAMES_URL, {
       agentToken: playfiver_token,
       secretKey: playfiver_secret,
@@ -241,6 +248,12 @@ export const getPlayFiverGames = async (credentials) => {
 
     if (response.data && response.data.status === false) {
       const errorMsg = response.data.msg || response.data.error || 'Erro desconhecido'
+      
+      // Se for erro de IP, dar mensagem mais clara
+      if (errorMsg.includes('IP') || errorMsg.includes('ip') || errorMsg.includes('permitido')) {
+        throw new Error(`IP do servidor não está na whitelist da PlayFiver. Entre em contato com o suporte da PlayFiver para adicionar o IP do servidor (Vercel) à whitelist. Erro: ${errorMsg}`)
+      }
+      
       throw new Error(`Erro da API PlayFiver: ${errorMsg}`)
     }
 
