@@ -374,15 +374,35 @@ export const getSingleGame = async (req, res) => {
 
     // Lançar jogo no PlayFiver
     try {
-      const playfiverResponse = await playFiverLaunch(
-        game.game_id || game.game_code,
-        user.email,
-        balanceToUse, // Usar balanceToUse em vez de totalBalance
-        {
-          ...keys[0],
-          game_original: game.original !== undefined ? game.original : true, // Usar game_original do banco
-        }
-      )
+      console.log('[GameController] Iniciando lançamento do jogo:', {
+        gameId: game.id,
+        gameCode: game.game_id || game.game_code,
+        userEmail: user.email,
+        balance: balanceToUse,
+        gameOriginal: game.original,
+        hasCredentials: !!(keys[0] && keys[0].playfiver_token),
+      })
+
+      const playfiverResponse = await Promise.race([
+        playFiverLaunch(
+          game.game_id || game.game_code,
+          user.email,
+          balanceToUse, // Usar balanceToUse em vez de totalBalance
+          {
+            ...keys[0],
+            game_original: game.original !== undefined ? game.original : true, // Usar game_original do banco
+          }
+        ),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout ao lançar jogo no PlayFiver (8s)')), 8000)
+        )
+      ])
+
+      console.log('[GameController] Resposta do PlayFiver recebida:', {
+        hasLaunchUrl: !!playfiverResponse.launch_url,
+        status: playfiverResponse.status,
+        msg: playfiverResponse.msg,
+      })
 
       // Conforme documentação: https://api.playfivers.com/docs/api
       // A resposta contém: { "status": true, "msg": "SUCCESS", "launch_url": "https://games.playfivers.com/launch?token=..." }
@@ -390,6 +410,7 @@ export const getSingleGame = async (req, res) => {
 
       if (!gameUrl) {
         const errorMsg = playfiverResponse.msg || 'URL de lançamento não retornada pela PlayFiver'
+        console.error('[GameController] Erro: Sem launch_url na resposta:', playfiverResponse)
         throw new Error(errorMsg)
       }
 
@@ -411,24 +432,41 @@ export const getSingleGame = async (req, res) => {
         token: playfiverResponse.session_id || playfiverResponse.token || 'session_token',
       })
     } catch (playfiverError) {
-      console.error('Erro ao lançar jogo no PlayFiver:', playfiverError)
-      console.error('Detalhes do erro:', {
-        message: playfiverError.message,
-        code: playfiverError.code,
-        stack: playfiverError.stack,
-      })
+      console.error('[GameController] ❌ Erro ao lançar jogo no PlayFiver')
+      console.error('[GameController] Tipo do erro:', playfiverError.constructor.name)
+      console.error('[GameController] Mensagem:', playfiverError.message)
+      console.error('[GameController] Código:', playfiverError.code)
+      console.error('[GameController] Stack:', playfiverError.stack)
+      
+      if (playfiverError.response) {
+        console.error('[GameController] Resposta HTTP:', {
+          status: playfiverError.response.status,
+          statusText: playfiverError.response.statusText,
+          data: playfiverError.response.data,
+        })
+      }
       
       // Verificar tipo de erro e retornar mensagem apropriada
       let errorMessage = 'Erro ao conectar com o provedor de jogos'
       let errorDetails = playfiverError.message
       
-      if (playfiverError.message.includes('Credenciais')) {
+      // Se o erro tem uma resposta da API, usar a mensagem dela
+      if (playfiverError.response && playfiverError.response.data) {
+        const apiError = playfiverError.response.data
+        if (apiError.msg) {
+          errorMessage = apiError.msg
+        } else if (apiError.error) {
+          errorMessage = apiError.error
+        } else if (apiError.message) {
+          errorMessage = apiError.message
+        }
+      } else if (playfiverError.message.includes('Credenciais')) {
         errorMessage = 'Credenciais PlayFiver não configuradas ou inválidas'
         errorDetails = 'Por favor, configure as credenciais do PlayFiver no painel administrativo (Admin > Chaves PlayFiver).'
       } else if (playfiverError.message.includes('SSL') || playfiverError.message.includes('TLS') || playfiverError.message.includes('EPROTO')) {
         errorMessage = 'Erro de conexão SSL com PlayFiver'
         errorDetails = 'Não foi possível estabelecer uma conexão segura com o servidor PlayFiver. Verifique se as credenciais estão corretas e se o servidor está acessível.'
-      } else if (playfiverError.message.includes('timeout')) {
+      } else if (playfiverError.message.includes('timeout') || playfiverError.message.includes('Timeout')) {
         errorMessage = 'Timeout ao conectar com PlayFiver'
         errorDetails = 'O servidor PlayFiver não respondeu a tempo. Tente novamente mais tarde.'
       }
@@ -440,6 +478,15 @@ export const getSingleGame = async (req, res) => {
         action: 'configure_playfiver',
       })
     }
+  } catch (error) {
+    console.error('[GameController] ❌ Erro geral ao processar requisição:', error)
+    console.error('[GameController] Stack:', error.stack)
+    return res.status(500).json({
+      error: 'Erro interno do servidor',
+      status: false,
+      details: error.message,
+    })
+  }
   } catch (error) {
     console.error('Erro ao buscar jogo:', error)
     res.status(500).json({

@@ -50,91 +50,52 @@ const tryWithHostname = async (body) => {
   } catch (error1) {
     console.log('[PlayFiver] Tentativa 1 falhou:', error1.message)
     
-    // Configuração 2: Usar fetch nativo do Node.js (se disponível) ou curl via child_process
+    // Configuração 2: Com SNI explícito mas com TLS mais antigo
+    // Pular curl no Vercel (não disponível)
     try {
-      console.log('[PlayFiver] Tentativa 2: Usando curl via child_process...')
-      const { exec } = await import('child_process')
-      const { promisify } = await import('util')
-      const execAsync = promisify(exec)
+      console.log('[PlayFiver] Tentativa 2: Com SNI e TLS 1.2 apenas...')
       
-      const curlCommand = `curl -X POST "${PLAYFIVER_URL}" \\
-        -H "Content-Type: application/json" \\
-        -H "Accept: application/json" \\
-        -d '${JSON.stringify(body).replace(/'/g, "'\\''")}' \\
-        --insecure \\
-        --max-time 8 \\
-        --silent \\
-        --show-error \\
-        -w "\\n%{http_code}" 2>&1`
-      
-      const { stdout, stderr } = await execAsync(curlCommand, {
-        maxBuffer: 10 * 1024 * 1024, // 10MB
-      })
-      
-      // Parse resposta do curl
-      const lines = stdout.trim().split('\n')
-      const httpCode = parseInt(lines[lines.length - 1])
-      const responseBody = lines.slice(0, -1).join('\n')
-      
-      if (httpCode >= 200 && httpCode < 500) {
-        try {
-          const data = JSON.parse(responseBody)
-          console.log('[PlayFiver] Resposta recebida via curl - Status:', httpCode)
-          return { success: true, data }
-        } catch (parseError) {
-          console.log('[PlayFiver] Erro ao parsear resposta do curl:', parseError.message)
-        }
-      }
-      
-      throw new Error(`curl retornou código ${httpCode}`)
-    } catch (error2) {
-      console.log('[PlayFiver] Tentativa 2 (curl) falhou:', error2.message)
-      
-      // Configuração 3: Com SNI explícito mas com TLS mais antigo
-      const agent3 = new https.Agent({
+      const agent2 = new https.Agent({
         rejectUnauthorized: false,
-        minVersion: 'TLSv1',
-        maxVersion: 'TLSv1.2', // Tentar apenas TLS 1.2
+        minVersion: 'TLSv1.2',
+        maxVersion: 'TLSv1.3',
         servername: PLAYFIVER_HOST,
         keepAlive: false,
       })
       
-      try {
-        console.log('[PlayFiver] Tentativa 3: Com SNI e TLS 1.2 apenas...')
-        const response = await axios.post(PLAYFIVER_URL, body, {
-          httpsAgent: agent3,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Host': PLAYFIVER_HOST,
-          },
-          timeout: 8000, // 8 segundos (Vercel tem limite de 10s no plano gratuito)
-          validateStatus: (status) => status < 500,
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity,
-        })
-        
-        console.log('[PlayFiver] Resposta recebida - Status:', response.status)
-        return { success: true, data: response.data }
-      } catch (error3) {
-        console.log('[PlayFiver] Tentativa 3 falhou:', error3.message)
-        
-        // Retornar o último erro
-        const errorMessage = error3.message || 'Erro desconhecido'
-        const errorCode = error3.code || 'UNKNOWN'
-        const errorResponse = error3.response ? {
-          status: error3.response.status,
-          statusText: error3.response.statusText,
-          data: error3.response.data,
-        } : null
-        
-        return { 
-          success: false, 
-          error: errorMessage,
-          code: errorCode,
-          response: errorResponse,
-        }
+      const response = await axios.post(PLAYFIVER_URL, body, {
+        httpsAgent: agent2,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Host': PLAYFIVER_HOST,
+        },
+        timeout: 8000, // 8 segundos (Vercel tem limite de 10s no plano gratuito)
+        validateStatus: (status) => status < 500,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      })
+      
+      console.log('[PlayFiver] Resposta recebida - Status:', response.status)
+      return { success: true, data: response.data }
+    } catch (error2) {
+      console.log('[PlayFiver] Tentativa 2 falhou:', error2.message)
+      
+      // Retornar o último erro
+      const errorMessage = error2.message || 'Erro desconhecido'
+      const errorCode = error2.code || 'UNKNOWN'
+      const errorResponse = error2.response ? {
+        status: error2.response.status,
+        statusText: error2.response.statusText,
+        data: error2.response.data,
+      } : null
+      
+      return { 
+        success: false, 
+        error: errorMessage,
+        code: errorCode,
+        response: errorResponse,
       }
     }
   }
