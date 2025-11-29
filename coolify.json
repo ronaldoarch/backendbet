@@ -1,0 +1,18 @@
+{
+  "build": {
+    "command": "npm install --production",
+    "directory": "."
+  },
+  "run": {
+    "command": "npm start",
+    "directory": "."
+  },
+  "ports": {
+    "3001": "http"
+  },
+  "healthcheck": {
+    "path": "/api/health",
+    "port": 3001
+  }
+}
+
