@@ -6,6 +6,11 @@ dotenv.config()
 let redisClient = null
 
 export const getRedisClient = async () => {
+  // No Vercel, Redis não está disponível - retornar null imediatamente
+  if (process.env.VERCEL === '1' || !process.env.REDIS_HOST) {
+    return null
+  }
+
   if (redisClient && redisClient.isOpen) {
     return redisClient
   }
@@ -15,6 +20,7 @@ export const getRedisClient = async () => {
       socket: {
         host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || '6379'),
+        connectTimeout: 1000, // 1 segundo para conectar
       },
       password: process.env.REDIS_PASSWORD || undefined,
     })
@@ -23,7 +29,11 @@ export const getRedisClient = async () => {
       console.warn('Redis Client Error:', err)
     })
 
-    await redisClient.connect()
+    // Timeout para conexão
+    await Promise.race([
+      redisClient.connect(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Redis connection timeout')), 1000))
+    ])
     return redisClient
   } catch (error) {
     console.warn('Redis não disponível, usando cache em memória:', error.message)

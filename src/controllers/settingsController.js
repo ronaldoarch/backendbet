@@ -4,15 +4,25 @@ import { cache } from '../config/redis.js'
 export const getSettings = async (req, res) => {
   try {
     const cacheKey = 'api.settings.data'
-    const cached = await cache.get(cacheKey)
     
-    if (cached) {
-      return res.json(cached)
+    // Tentar buscar do cache (com timeout curto)
+    try {
+      const cached = await Promise.race([
+        cache.get(cacheKey),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Cache timeout')), 500))
+      ])
+      if (cached) {
+        return res.json(cached)
+      }
+    } catch (cacheError) {
+      // Ignorar erro de cache, continuar com query
     }
 
-    const [settings] = await pool.execute(
-      'SELECT * FROM settings LIMIT 1'
-    )
+    // Query com timeout
+    const [settings] = await Promise.race([
+      pool.execute('SELECT * FROM settings LIMIT 1'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
+    ])
 
     let setting = settings && settings.length > 0 ? settings[0] : {
       software_name: 'BetGenius',
@@ -39,7 +49,10 @@ export const getSettings = async (req, res) => {
       },
     }
 
-    await cache.set(cacheKey, response, 3600) // 1 hora
+    // Tentar salvar no cache (sem bloquear)
+    cache.set(cacheKey, response, 300).catch(() => {
+      // Ignorar erro de cache
+    }) // Cache de 5 minutos
 
     res.json(response)
   } catch (error) {
@@ -54,21 +67,38 @@ export const getSettings = async (req, res) => {
 export const getBanners = async (req, res) => {
   try {
     const cacheKey = 'api.settings.banners'
-    const cached = await cache.get(cacheKey)
     
-    if (cached) {
-      return res.json(cached)
+    // Tentar buscar do cache (com timeout curto)
+    try {
+      const cached = await Promise.race([
+        cache.get(cacheKey),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Cache timeout')), 500))
+      ])
+      if (cached) {
+        return res.json(cached)
+      }
+    } catch (cacheError) {
+      // Ignorar erro de cache, continuar com query
     }
 
-    const [banners] = await pool.execute(
-      `SELECT id, image, link, type, description
-       FROM banners
-       WHERE status = 1
-       ORDER BY type, id`
-    )
+    // Query com timeout
+    const [banners] = await Promise.race([
+      pool.execute(
+        `SELECT id, image, link, type, description
+         FROM banners
+         WHERE status = 1
+         ORDER BY type, id
+         LIMIT 50`
+      ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
+    ])
 
     const response = { banners }
-    await cache.set(cacheKey, response, 3600) // 1 hora
+    
+    // Tentar salvar no cache (sem bloquear)
+    cache.set(cacheKey, response, 300).catch(() => {
+      // Ignorar erro de cache
+    }) // Cache de 5 minutos
 
     res.json(response)
   } catch (error) {

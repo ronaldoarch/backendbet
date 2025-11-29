@@ -287,14 +287,17 @@ export const getSingleGame = async (req, res) => {
       })
     }
 
-    // Buscar jogo
-    const [games] = await pool.execute(
-      `SELECT g.*, p.name as provider_name, p.code as provider_code
-       FROM games g
-       JOIN providers p ON g.provider_id = p.id
-       WHERE g.id = ? AND g.status = 1`,
-      [id]
-    )
+    // Buscar jogo (com timeout)
+    const [games] = await Promise.race([
+      pool.execute(
+        `SELECT g.*, p.name as provider_name, p.code as provider_code
+         FROM games g
+         JOIN providers p ON g.provider_id = p.id
+         WHERE g.id = ? AND g.status = 1`,
+        [id]
+      ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
+    ])
 
     if (!games || games.length === 0) {
       return res.status(404).json({
@@ -305,11 +308,11 @@ export const getSingleGame = async (req, res) => {
 
     const game = games[0]
 
-    // Buscar carteira
-    const [wallets] = await pool.execute(
-      'SELECT * FROM wallets WHERE user_id = ?',
-      [user.id]
-    )
+    // Buscar carteira (com timeout)
+    const [wallets] = await Promise.race([
+      pool.execute('SELECT * FROM wallets WHERE user_id = ?', [user.id]),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
+    ])
 
     if (!wallets || wallets.length === 0) {
       return res.status(400).json({
@@ -336,19 +339,23 @@ export const getSingleGame = async (req, res) => {
     // Usar saldo mínimo de 1000 para testes se o saldo for 0
     const balanceToUse = totalBalance > 0 ? totalBalance : 1000
 
-    // Buscar categorias
-    const [categories] = await pool.execute(
-      `SELECT c.id, c.name, c.slug
-       FROM categories c
-       JOIN category_games cg ON c.id = cg.category_id
-       WHERE cg.game_id = ?`,
-      [id]
-    )
+    // Buscar categorias (com timeout)
+    const [categories] = await Promise.race([
+      pool.execute(
+        `SELECT c.id, c.name, c.slug
+         FROM categories c
+         JOIN category_games cg ON c.id = cg.category_id
+         WHERE cg.game_id = ?`,
+        [id]
+      ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
+    ])
 
-    // Buscar credenciais PlayFiver
-    const [keys] = await pool.execute(
-      'SELECT playfiver_token, playfiver_secret, playfiver_code FROM games_keys LIMIT 1'
-    )
+    // Buscar credenciais PlayFiver (com timeout)
+    const [keys] = await Promise.race([
+      pool.execute('SELECT playfiver_token, playfiver_secret, playfiver_code FROM games_keys LIMIT 1'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
+    ])
 
     if (!keys || keys.length === 0 || !keys[0].playfiver_token) {
       return res.status(500).json({
@@ -357,14 +364,13 @@ export const getSingleGame = async (req, res) => {
       })
     }
 
-    // Incrementar views
-    await pool.execute(
-      'UPDATE games SET views = views + 1 WHERE id = ?',
-      [id]
-    )
+    // Incrementar views (sem bloquear)
+    pool.execute('UPDATE games SET views = views + 1 WHERE id = ?', [id]).catch(() => {
+      // Ignorar erro
+    })
 
-    // Invalidar cache
-    await cache.clear('api.games.*')
+    // Invalidar cache (sem bloquear)
+    cache.clear('api.games.*').catch(() => {})
 
     // Lançar jogo no PlayFiver
     try {
