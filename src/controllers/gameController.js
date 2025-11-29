@@ -466,30 +466,36 @@ export const getSingleGame = async (req, res) => {
         })
       }
       
-      // Verificar tipo de erro e retornar mensagem apropriada
-      let errorMessage = 'Erro ao conectar com o provedor de jogos'
-      let errorDetails = playfiverError.message
-      
-      // Se o erro tem uma resposta da API, usar a mensagem dela
-      if (playfiverError.response && playfiverError.response.data) {
-        const apiError = playfiverError.response.data
-        if (apiError.msg) {
-          errorMessage = apiError.msg
-        } else if (apiError.error) {
-          errorMessage = apiError.error
-        } else if (apiError.message) {
-          errorMessage = apiError.message
-        }
-      } else if (playfiverError.message.includes('Credenciais')) {
-        errorMessage = 'Credenciais PlayFiver não configuradas ou inválidas'
-        errorDetails = 'Por favor, configure as credenciais do PlayFiver no painel administrativo (Admin > Chaves PlayFiver).'
-      } else if (playfiverError.message.includes('SSL') || playfiverError.message.includes('TLS') || playfiverError.message.includes('EPROTO')) {
-        errorMessage = 'Erro de conexão SSL com PlayFiver'
-        errorDetails = 'Não foi possível estabelecer uma conexão segura com o servidor PlayFiver. Verifique se as credenciais estão corretas e se o servidor está acessível.'
-      } else if (playfiverError.message.includes('timeout') || playfiverError.message.includes('Timeout')) {
-        errorMessage = 'Timeout ao conectar com PlayFiver'
-        errorDetails = 'O servidor PlayFiver não respondeu a tempo. Tente novamente mais tarde.'
-      }
+          // Verificar tipo de erro e retornar mensagem apropriada
+          let errorMessage = 'Erro ao conectar com o provedor de jogos'
+          let errorDetails = playfiverError.message
+          
+          // Se o erro tem uma resposta da API, usar a mensagem dela
+          if (playfiverError.response && playfiverError.response.data) {
+            const apiError = playfiverError.response.data
+            if (apiError.msg) {
+              errorMessage = apiError.msg
+              errorDetails = apiError.msg
+            } else if (apiError.error) {
+              errorMessage = apiError.error
+              errorDetails = apiError.error
+            } else if (apiError.message) {
+              errorMessage = apiError.message
+              errorDetails = apiError.message
+            }
+          } else if (playfiverError.message.includes('IP') || playfiverError.message.includes('ip') || playfiverError.message.includes('permitido') || playfiverError.message.includes('Não permitido')) {
+            errorMessage = 'IP do servidor não está na whitelist da PlayFiver'
+            errorDetails = 'O IP do servidor precisa estar na whitelist da PlayFiver. Execute: npm run get-ip para descobrir o IP atual e adicione à whitelist.'
+          } else if (playfiverError.message.includes('Credenciais')) {
+            errorMessage = 'Credenciais PlayFiver não configuradas ou inválidas'
+            errorDetails = 'Por favor, configure as credenciais do PlayFiver no painel administrativo (Admin > Chaves PlayFiver).'
+          } else if (playfiverError.message.includes('SSL') || playfiverError.message.includes('TLS') || playfiverError.message.includes('EPROTO')) {
+            errorMessage = 'Erro de conexão SSL com PlayFiver'
+            errorDetails = 'Não foi possível estabelecer uma conexão segura com o servidor PlayFiver. Verifique se as credenciais estão corretas e se o servidor está acessível.'
+          } else if (playfiverError.message.includes('timeout') || playfiverError.message.includes('Timeout')) {
+            errorMessage = 'Timeout ao conectar com PlayFiver'
+            errorDetails = 'O servidor PlayFiver não respondeu a tempo. Tente novamente mais tarde.'
+          }
       
       return res.status(500).json({
         error: errorMessage,
