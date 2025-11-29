@@ -137,12 +137,24 @@ export const createOrder = async (data) => {
       data: response.data,
     }
   } catch (error) {
-    console.error('[Arkama] Erro ao criar compra:', error.response?.data || error.message)
+    console.error('[Arkama] Erro ao criar compra:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      requestData: requestBody,
+    })
+    
+    // Retornar erro mais detalhado
+    const errorMessage = error.response?.data?.message || 
+                        error.response?.data?.error || 
+                        error.message
     
     return {
       success: false,
-      error: error.response?.data?.message || error.message,
+      error: errorMessage,
       details: error.response?.data,
+      status: error.response?.status,
     }
   }
 }

@@ -77,8 +77,12 @@ export const createDeposit = async (req, res) => {
     })
 
     if (!arkamaResponse.success) {
-      console.error('[PaymentController] Erro na Arkama:', arkamaResponse.error)
-      return res.status(500).json({
+      console.error('[PaymentController] Erro na Arkama:', {
+        error: arkamaResponse.error,
+        details: arkamaResponse.details,
+        status: arkamaResponse.status,
+      })
+      return res.status(arkamaResponse.status || 500).json({
         error: 'Erro ao criar pagamento',
         message: arkamaResponse.error || 'Erro desconhecido',
         details: arkamaResponse.details,
