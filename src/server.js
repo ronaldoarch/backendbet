@@ -1,0 +1,123 @@
+import express from 'express'
+import cors from 'cors'
+import helmet from 'helmet'
+import rateLimit from 'express-rate-limit'
+import dotenv from 'dotenv'
+import routes from './routes/index.js'
+import webhookRoutes from './routes/webhookRoutes.js'
+import { getRedisClient } from './config/redis.js'
+
+dotenv.config()
+
+const app = express()
+const PORT = process.env.PORT || 3001
+
+// Trust proxy - necessário quando está atrás de um proxy reverso (Apache/Nginx)
+// Em desenvolvimento, usar false. Em produção (Vercel, etc), usar true ou número específico
+if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+  app.set('trust proxy', 1) // Confiar apenas no primeiro proxy
+} else {
+  app.set('trust proxy', false) // Desabilitar em desenvolvimento
+}
+
+// Middleware de segurança
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}))
+
+// CORS
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  // Permitir requisições do PlayFiver (webhooks)
+  exposedHeaders: ['Content-Type'],
+}))
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 60, // 60 requisições por minuto
+  message: 'Muitas requisições, tente novamente mais tarde.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Desabilitar validação de trust proxy em desenvolvimento
+  validate: {
+    trustProxy: false,
+  },
+})
+
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 5, // 5 tentativas por minuto
+  message: 'Muitas tentativas de login, tente novamente mais tarde.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: {
+    trustProxy: false,
+  },
+})
+
+app.use('/api/auth/login', authLimiter)
+app.use('/api/auth/register', authLimiter)
+app.use('/api', limiter)
+
+// Body parser - aumentar limite para 20MB (para imagens base64 grandes)
+// Base64 aumenta o tamanho em ~33%, então 20MB permite imagens de ~15MB
+app.use(express.json({ limit: '20mb' }))
+app.use(express.urlencoded({ extended: true, limit: '20mb' }))
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
+// Health check com prefixo /api
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
+// Rotas da API
+app.use('/api', routes)
+
+// Rota pública para webhook PlayFiver (sem prefixo /api)
+// Permite que a URL de callback seja: https://betgeniusbr.com/playfiver/callback
+app.use('/playfiver', webhookRoutes)
+
+// Middleware de erro
+app.use((err, req, res, next) => {
+  console.error('Erro:', err)
+  res.status(err.status || 500).json({
+    error: err.message || 'Erro interno do servidor',
+    status: false,
+  })
+})
+
+// 404
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Rota não encontrada',
+    status: false,
+  })
+})
+
+// Inicializar Redis
+getRedisClient().catch(() => {
+  console.warn('Redis não disponível, usando cache em memória')
+})
+
+// Iniciar servidor (apenas se não estiver no Vercel)
+// No Vercel, o servidor é gerenciado automaticamente
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor rodando na porta ${PORT}`)
+    console.log(`📡 Ambiente: ${process.env.APP_ENV || 'development'}`)
+    console.log(`🌐 URL: ${process.env.APP_URL || `http://localhost:${PORT}`}`)
+  })
+}
+
+// Exportar app para Vercel
+export default app
+
