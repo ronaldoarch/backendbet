@@ -1,9 +1,8 @@
 import axios from 'axios'
 import https from 'https'
 
-// IPs conhecidos do PlayFiver (pode precisar atualizar)
-const PLAYFIVER_IPS = ['13.248.169.48', '76.223.54.146']
-const PLAYFIVER_HOST = 'api.playfiver.com'
+// URL correta da API PlayFiver conforme documentação: https://api.playfivers.com/docs/api
+const PLAYFIVER_HOST = 'api.playfivers.com'
 const PLAYFIVER_URL = `https://${PLAYFIVER_HOST}/api/v2/game_launch`
 
 /**
