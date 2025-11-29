@@ -1,7 +1,6 @@
 import pool from '../config/database.js'
 import dotenv from 'dotenv'
-import axios from 'axios'
-import https from 'https'
+import { getPlayFiverGames } from '../services/playfiver.js'
 
 dotenv.config()
 
@@ -24,8 +23,9 @@ const PLAYFIVER_GAME_IDS = {
 }
 
 /**
- * Buscar lista de jogos da PlayFiver (se a API suportar)
- * Nota: Esta função requer um endpoint de listagem de jogos na API PlayFiver
+ * Buscar lista de jogos da PlayFiver usando o endpoint oficial
+ * Documentação: https://api.playfivers.com/docs/api
+ * Endpoint: GET /api/v2/games
  */
 async function fetchPlayFiverGames() {
   try {
@@ -41,32 +41,16 @@ async function fetchPlayFiverGames() {
 
     const { playfiver_token, playfiver_secret } = keys[0]
 
-    // Tentar buscar lista de jogos (endpoint pode variar)
-    // Nota: Verifique a documentação da PlayFiver para o endpoint correto
-    const PLAYFIVER_API_URL = 'https://api.playfivers.com/api/v2/games' // Exemplo - ajuste conforme necessário
-
-    const agent = new https.Agent({
-      rejectUnauthorized: false,
-      minVersion: 'TLSv1.2',
-      maxVersion: 'TLSv1.3',
-      keepAlive: false,
-    })
-
     try {
-      const response = await axios.get(PLAYFIVER_API_URL, {
-        httpsAgent: agent,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${playfiver_token}`, // Ajuste conforme necessário
-        },
-        timeout: 10000,
-        validateStatus: (status) => status < 500,
+      // Usar a função do serviço playfiver.js
+      const games = await getPlayFiverGames({
+        playfiver_token,
+        playfiver_secret,
       })
 
-      if (response.data && response.data.games) {
-        console.log(`✅ Lista de jogos obtida da PlayFiver: ${response.data.games.length} jogos`)
-        return response.data.games
+      if (games && Array.isArray(games) && games.length > 0) {
+        console.log(`✅ Lista de jogos obtida da PlayFiver: ${games.length} jogos`)
+        return games
       }
     } catch (apiError) {
       console.warn('⚠️  Não foi possível buscar jogos da API PlayFiver:', apiError.message)
@@ -104,13 +88,21 @@ async function updateGameIds(playfiverGames = null) {
     let gameIdMap = { ...PLAYFIVER_GAME_IDS }
     
     if (playfiverGames && Array.isArray(playfiverGames)) {
+      console.log('\n📋 Criando mapeamento a partir da lista da PlayFiver...\n')
+      
       // Criar mapeamento baseado na lista da API
-      // Assumindo que a API retorna: { code: 'game_code', id: 'playfiver_id', name: 'game_name' }
+      // A API pode retornar: { code: 'game_code', game_code: '...', name: 'game_name', ... }
       playfiverGames.forEach(game => {
-        if (game.code && game.id) {
-          gameIdMap[game.code] = game.id
+        const gameCode = game.code || game.game_code || game.slug
+        const gameId = game.id || game.game_id || gameCode
+        
+        if (gameCode && gameId) {
+          gameIdMap[gameCode] = gameId
+          console.log(`  📝 Mapeado: ${gameCode} → ${gameId}`)
         }
       })
+      
+      console.log(`\n✅ ${Object.keys(gameIdMap).length} jogos no mapeamento (incluindo manual)\n`)
     }
 
     for (const game of allGames) {

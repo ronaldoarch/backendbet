@@ -4,6 +4,7 @@ import https from 'https'
 // URL correta da API PlayFiver conforme documentação: https://api.playfivers.com/docs/api
 const PLAYFIVER_HOST = 'api.playfivers.com'
 const PLAYFIVER_URL = `https://${PLAYFIVER_HOST}/api/v2/game_launch`
+const PLAYFIVER_GAMES_URL = `https://${PLAYFIVER_HOST}/api/v2/games`
 
 /**
  * Estratégia 1: Tentar com IP direto (bypass SNI) - DESABILITADA
@@ -189,6 +190,95 @@ export const playFiverLaunch = async (gameId, userEmail, userBalance, credential
   
   // Erro genérico
   throw new Error(`Erro ao conectar com PlayFiver: ${errorMessage}`)
+}
+
+/**
+ * Obter lista de jogos disponíveis da PlayFiver
+ * Documentação: https://api.playfivers.com/docs/api
+ * Endpoint: GET /api/v2/games
+ */
+export const getPlayFiverGames = async (credentials) => {
+  const { playfiver_token, playfiver_secret } = credentials
+
+  if (!playfiver_token || !playfiver_secret) {
+    throw new Error('Credenciais PlayFiver não configuradas')
+  }
+
+  const agent = new https.Agent({
+    rejectUnauthorized: false,
+    minVersion: 'TLSv1.2',
+    maxVersion: 'TLSv1.3',
+    keepAlive: false,
+  })
+
+  try {
+    console.log('[PlayFiver] Buscando lista de jogos disponíveis...')
+    
+    // Tentar com autenticação no body (conforme padrão da API)
+    const response = await axios.post(PLAYFIVER_GAMES_URL, {
+      agentToken: playfiver_token,
+      secretKey: playfiver_secret,
+    }, {
+      httpsAgent: agent,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+      timeout: 15000, // 15 segundos
+      validateStatus: (status) => status < 500,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+    })
+
+    if (response.data && response.data.status === false) {
+      const errorMsg = response.data.msg || response.data.error || 'Erro desconhecido'
+      throw new Error(`Erro da API PlayFiver: ${errorMsg}`)
+    }
+
+    if (response.data && response.data.games) {
+      console.log(`[PlayFiver] ✅ Lista de jogos obtida: ${response.data.games.length} jogos`)
+      return response.data.games
+    }
+
+    // Tentar formato alternativo (se games estiver no root)
+    if (Array.isArray(response.data)) {
+      console.log(`[PlayFiver] ✅ Lista de jogos obtida: ${response.data.length} jogos`)
+      return response.data
+    }
+
+    throw new Error('Formato de resposta inesperado da API PlayFiver')
+  } catch (error) {
+    console.error('[PlayFiver] ❌ Erro ao buscar lista de jogos:', error.message)
+    
+    // Se for erro de autenticação, tentar GET sem body
+    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      try {
+        console.log('[PlayFiver] Tentando GET com token no header...')
+        const getResponse = await axios.get(PLAYFIVER_GAMES_URL, {
+          httpsAgent: agent,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${playfiver_token}`,
+            'X-Agent-Token': playfiver_token,
+            'X-Secret-Key': playfiver_secret,
+          },
+          timeout: 15000,
+          validateStatus: (status) => status < 500,
+        })
+
+        if (getResponse.data && getResponse.data.games) {
+          console.log(`[PlayFiver] ✅ Lista de jogos obtida (GET): ${getResponse.data.games.length} jogos`)
+          return getResponse.data.games
+        }
+      } catch (getError) {
+        console.error('[PlayFiver] ❌ Erro ao buscar com GET:', getError.message)
+      }
+    }
+
+    throw error
+  }
 }
 
 /**
