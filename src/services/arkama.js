@@ -38,10 +38,13 @@ async function getArkamaCredentials() {
 
 // Criar instância do axios (será configurada dinamicamente)
 let arkamaApi = null
+let lastConfig = null
 
 async function getArkamaApi() {
-  if (!arkamaApi) {
-    const { apiToken, baseUrl } = await getArkamaCredentials()
+  const { apiToken, baseUrl } = await getArkamaCredentials()
+  
+  // Recriar instância se as credenciais mudaram
+  if (!arkamaApi || lastConfig?.apiToken !== apiToken || lastConfig?.baseUrl !== baseUrl) {
     arkamaApi = axios.create({
       baseURL: baseUrl,
       headers: {
@@ -51,7 +54,9 @@ async function getArkamaApi() {
       },
       timeout: 30000,
     })
+    lastConfig = { apiToken, baseUrl }
   }
+  
   return arkamaApi
 }
 
