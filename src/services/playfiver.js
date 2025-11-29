@@ -150,6 +150,7 @@ export const playFiverLaunch = async (gameId, userEmail, userBalance, credential
     throw new Error('Credenciais PlayFiver não configuradas')
   }
 
+  // Montar body conforme documentação: https://api.playfivers.com/docs/api
   const body = {
     agentToken: playfiver_token,
     secretKey: playfiver_secret,
@@ -157,6 +158,8 @@ export const playFiverLaunch = async (gameId, userEmail, userBalance, credential
     game_code: gameId,
     game_original: true,
     user_balance: parseFloat(userBalance).toFixed(2),
+    lang: 'pt', // Português conforme documentação
+    // user_rtp é opcional, pode ser adicionado se necessário
   }
 
   console.log('[PlayFiver] Tentando lançar jogo:', { gameId, userEmail, userBalance })
@@ -167,24 +170,35 @@ export const playFiverLaunch = async (gameId, userEmail, userBalance, credential
   
   if (result.success) {
     console.log('[PlayFiver] ✅ Sucesso!')
-    // Verificar se a resposta tem dados válidos
+    // Verificar se a resposta tem dados válidos conforme documentação
     if (result.data) {
-      // Verificar diferentes formatos de resposta
-      const launchUrl = result.data.launch_url || result.data.url || result.data.game_url
+      // Verificar status da resposta (conforme documentação: status: true/false)
+      if (result.data.status === false) {
+        const errorMsg = result.data.msg || result.data.error || result.data.message || 'Erro desconhecido da API'
+        console.error('[PlayFiver] API retornou erro:', errorMsg)
+        throw new Error(`Erro da API PlayFiver: ${errorMsg}. Verifique as credenciais e o código do jogo.`)
+      }
+      
+      // Verificar launch_url conforme documentação
+      // Documentação: https://api.playfivers.com/docs/api
+      // Resposta esperada: { "status": true, "msg": "SUCCESS", "launch_url": "https://games.playfivers.com/launch?token=..." }
+      const launchUrl = result.data.launch_url
       if (launchUrl) {
         console.log('[PlayFiver] URL de lançamento obtida:', launchUrl.substring(0, 50) + '...')
+        console.log('[PlayFiver] Resposta completa:', {
+          status: result.data.status,
+          msg: result.data.msg,
+          user_balance: result.data.user_balance,
+          user_created: result.data.user_created,
+          name: result.data.name,
+        })
         return result.data
       }
       
-      // Se não tem URL mas tem status de sucesso, pode ser erro de credenciais
-      if (result.data.status === false || result.data.error) {
-        const errorMsg = result.data.error || result.data.message || 'Erro desconhecido da API'
-        console.error('[PlayFiver] API retornou erro:', errorMsg)
-        throw new Error(`Erro da API PlayFiver: ${errorMsg}. Verifique as credenciais.`)
-      }
-      
-      console.warn('[PlayFiver] Resposta recebida mas sem URL de lançamento:', JSON.stringify(result.data).substring(0, 200))
-      throw new Error('Resposta da API PlayFiver não contém URL de lançamento. Verifique as credenciais e o código do jogo.')
+      // Se não tem launch_url, verificar se há mensagem de erro
+      const errorMsg = result.data.msg || result.data.error || 'Resposta inválida da API'
+      console.warn('[PlayFiver] Resposta recebida mas sem launch_url:', JSON.stringify(result.data).substring(0, 200))
+      throw new Error(`Erro da API PlayFiver: ${errorMsg}. Verifique as credenciais e o código do jogo.`)
     }
   }
   

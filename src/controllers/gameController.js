@@ -375,10 +375,13 @@ export const getSingleGame = async (req, res) => {
         keys[0]
       )
 
-      const gameUrl = playfiverResponse.launch_url || playfiverResponse.url
+      // Conforme documentação: https://api.playfivers.com/docs/api
+      // A resposta contém: { "status": true, "msg": "SUCCESS", "launch_url": "https://games.playfivers.com/launch?token=..." }
+      const gameUrl = playfiverResponse.launch_url
 
       if (!gameUrl) {
-        throw new Error('URL de lançamento não retornada pela PlayFiver')
+        const errorMsg = playfiverResponse.msg || 'URL de lançamento não retornada pela PlayFiver'
+        throw new Error(errorMsg)
       }
 
       res.json({
