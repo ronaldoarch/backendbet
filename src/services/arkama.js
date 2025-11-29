@@ -142,7 +142,6 @@ export const createOrder = async (data) => {
       status: error.response?.status,
       statusText: error.response?.statusText,
       data: error.response?.data,
-      requestData: requestBody,
     })
     
     // Retornar erro mais detalhado
