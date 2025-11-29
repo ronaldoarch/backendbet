@@ -346,18 +346,17 @@ export const getSingleGame = async (req, res) => {
                         parseFloat(wallet.balance_bonus || 0) + 
                         parseFloat(wallet.balance_withdrawal || 0)
 
-    // Permitir jogar sem saldo em modo de desenvolvimento/testes
-    // Em produção, descomente a verificação abaixo
-    // if (totalBalance <= 0) {
-    //   return res.json({
-    //     error: 'Você precisa ter saldo para jogar',
-    //     status: false,
-    //     action: 'deposit',
-    //   })
-    // }
+    // Verificar se o usuário tem saldo para jogar (MODO PRODUÇÃO)
+    if (totalBalance <= 0) {
+      return res.status(400).json({
+        error: 'Você precisa ter saldo para jogar',
+        status: false,
+        action: 'deposit',
+      })
+    }
 
-    // Usar saldo mínimo de 1000 para testes se o saldo for 0
-    const balanceToUse = totalBalance > 0 ? totalBalance : 1000
+    // Usar o saldo real do usuário
+    const balanceToUse = totalBalance
 
     // Buscar categorias (com timeout)
     const [categories] = await Promise.race([
