@@ -18,10 +18,19 @@ const generateCacheKey = (prefix, params = {}) => {
 export const getAllGames = async (req, res) => {
   try {
     const cacheKey = 'api.games.providers'
-    const cached = await cache.get(cacheKey)
     
-    if (cached) {
-      return res.json(cached)
+    // Tentar buscar do cache (com timeout curto)
+    try {
+      const cached = await Promise.race([
+        cache.get(cacheKey),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Cache timeout')), 1000))
+      ])
+      if (cached) {
+        return res.json(cached)
+      }
+    } catch (cacheError) {
+      // Ignorar erro de cache, continuar com query
+      console.warn('Cache não disponível, usando query direta')
     }
 
     const [providers] = await pool.execute(
@@ -60,7 +69,11 @@ export const getAllGames = async (req, res) => {
     )
 
     const response = { providers: providersWithGames }
-    await cache.set(cacheKey, response, 600) // 10 minutos
+    
+    // Tentar salvar no cache (sem bloquear)
+    cache.set(cacheKey, response, 300).catch(() => {
+      // Ignorar erro de cache
+    }) // Cache de 5 minutos (reduzido)
 
     res.json(response)
   } catch (error) {
@@ -79,10 +92,19 @@ export const getAllGames = async (req, res) => {
 export const getFeaturedGames = async (req, res) => {
   try {
     const cacheKey = 'api.games.featured'
-    const cached = await cache.get(cacheKey)
     
-    if (cached) {
-      return res.json(cached)
+    // Tentar buscar do cache (com timeout curto)
+    try {
+      const cached = await Promise.race([
+        cache.get(cacheKey),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Cache timeout')), 1000))
+      ])
+      if (cached) {
+        return res.json(cached)
+      }
+    } catch (cacheError) {
+      // Ignorar erro de cache, continuar com query
+      console.warn('Cache não disponível, usando query direta')
     }
 
     const [games] = await pool.execute(
@@ -110,7 +132,11 @@ export const getFeaturedGames = async (req, res) => {
     }))
 
     const response = { featured_games: featuredGames }
-    await cache.set(cacheKey, response, 3600) // 1 hora
+    
+    // Tentar salvar no cache (sem bloquear)
+    cache.set(cacheKey, response, 300).catch(() => {
+      // Ignorar erro de cache
+    }) // Cache de 5 minutos (reduzido)
 
     res.json(response)
   } catch (error) {

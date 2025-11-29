@@ -153,19 +153,16 @@ export const createGame = async (req, res) => {
       }
     }
 
-    // Invalidar cache - limpar todas as chaves relacionadas a jogos
-    try {
-      await cache.del('api.games.providers')
-      await cache.del('api.games.featured')
-      await cache.del('api.source.games')
-      // Limpar cache de listagem de jogos (pode ter múltiplas chaves)
-      const keys = await cache.keys('api.games.all.*')
-      for (const key of keys) {
-        await cache.del(key)
-      }
-    } catch (cacheError) {
-      console.warn('Erro ao limpar cache:', cacheError)
-    }
+    // Invalidar cache - limpar todas as chaves relacionadas a jogos (sem bloquear)
+    Promise.all([
+      cache.del('api.games.providers').catch(() => {}),
+      cache.del('api.games.featured').catch(() => {}),
+      cache.del('api.source.games').catch(() => {}),
+      cache.clear('api.games.all.*').catch(() => {}),
+      cache.clear('api.games*').catch(() => {}),
+    ]).catch(() => {
+      // Ignorar erros de cache
+    })
 
     // Buscar jogo criado
     const [newGame] = await pool.execute(
