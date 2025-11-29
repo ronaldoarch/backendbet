@@ -130,6 +130,46 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+// Endpoint para descobrir o IP real do Vercel
+app.get('/api/get-ip', async (req, res) => {
+  try {
+    // Tentar descobrir o IP real usando um serviço externo
+    const axios = (await import('axios')).default
+    const ipResponse = await axios.get('https://api.ipify.org?format=json', {
+      timeout: 5000,
+    })
+    
+    const publicIP = ipResponse.data.ip
+    
+    // Informações da requisição
+    const requestIP = req.ip || req.connection.remoteAddress || req.socket.remoteAddress
+    const forwardedFor = req.headers['x-forwarded-for']
+    const realIP = req.headers['x-real-ip']
+    
+    res.json({
+      publicIP: publicIP, // IP público do servidor (Vercel)
+      requestIP: requestIP, // IP da requisição
+      forwardedFor: forwardedFor, // IPs do proxy
+      realIP: realIP, // IP real do cliente
+      headers: {
+        'x-forwarded-for': forwardedFor,
+        'x-real-ip': realIP,
+        'cf-connecting-ip': req.headers['cf-connecting-ip'], // Cloudflare
+        'x-vercel-forwarded-for': req.headers['x-vercel-forwarded-for'], // Vercel
+      },
+      message: 'Use o publicIP para adicionar à whitelist da PlayFiver',
+    })
+  } catch (error) {
+    console.error('Erro ao descobrir IP:', error)
+    res.json({
+      error: 'Erro ao descobrir IP',
+      requestIP: req.ip || req.connection.remoteAddress,
+      forwardedFor: req.headers['x-forwarded-for'],
+      realIP: req.headers['x-real-ip'],
+    })
+  }
+})
+
 // Rotas da API
 app.use('/api', routes)
 
