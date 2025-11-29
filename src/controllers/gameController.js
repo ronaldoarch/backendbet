@@ -284,15 +284,28 @@ export const getCasinoGames = async (req, res) => {
  */
 export const getSingleGame = async (req, res) => {
   try {
+    console.log('[GameController] 🎮 getSingleGame chamado')
+    console.log('[GameController] Parâmetros:', req.params)
+    console.log('[GameController] Headers:', {
+      authorization: req.headers.authorization ? 'Presente' : 'Ausente',
+      origin: req.headers.origin,
+      userAgent: req.headers['user-agent']?.substring(0, 50),
+    })
+    
     const { id } = req.params
     const user = req.user
 
+    console.log('[GameController] User:', user ? `ID: ${user.id}` : 'Não autenticado')
+
     if (!user) {
+      console.log('[GameController] ❌ Usuário não autenticado')
       return res.status(401).json({
         error: 'Você precisa estar autenticado para jogar',
         status: false,
       })
     }
+    
+    console.log('[GameController] ✅ Usuário autenticado, buscando jogo ID:', id)
 
     // Buscar jogo (com timeout)
     const [games] = await Promise.race([
