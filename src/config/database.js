@@ -17,7 +17,7 @@ const pool = mysql.createPool({
   connectTimeout: 5000, // 5 segundos para conectar
   // acquireTimeout não existe no mysql2, removido
   // timeout não existe no mysql2, removido (causa warning)
-  ssl: process.env.DB_SSL === 'true' ? {
+  ssl: process.env.DB_SSL === 'true' || process.env.DB_SSL === '1' ? {
     rejectUnauthorized: false
   } : false,
 })
