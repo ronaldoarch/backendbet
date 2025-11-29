@@ -205,3 +205,4 @@ A carteira tem 3 tipos de saldo:
 4. **Verifique credenciais:**
    - `agent_code` e `agent_secret` devem estar corretos
 
+

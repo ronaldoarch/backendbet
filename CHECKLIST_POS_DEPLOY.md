@@ -139,3 +139,4 @@ curl ifconfig.me
 - **Health Check:** `https://api.betgeniusbr.com/api/health`
 - **Painel Coolify:** `http://seu-ip-coolify:8000`
 
+

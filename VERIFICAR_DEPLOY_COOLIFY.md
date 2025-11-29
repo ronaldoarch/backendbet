@@ -124,3 +124,4 @@ No painel do Coolify, verifique se todas as variáveis estão configuradas:
 - **API Backend:** `https://api.betgeniusbr.com/api` (se configurou domínio)
 - **Health Check:** `https://api.betgeniusbr.com/api/health`
 
+

@@ -263,3 +263,4 @@ Após pagamento, verifique os logs do Coolify:
 - Verifique se a transação foi criada no banco
 - Verifique se o status está correto
 
+

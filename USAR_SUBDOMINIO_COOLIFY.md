@@ -91,3 +91,4 @@ Quando o DNS do `api.betgeniusbr.com` estiver funcionando:
 - [ ] Configurar DNS do `api.betgeniusbr.com` (para produção)
 - [ ] Obter IP da VPS para whitelist da PlayFiver
 
+

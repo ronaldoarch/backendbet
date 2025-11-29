@@ -90,3 +90,4 @@ No Coolify, verifique os logs:
 3. Verifique se o deploy foi concluído
 4. Teste novamente
 
+

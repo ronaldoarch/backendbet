@@ -6,10 +6,10 @@ import pool from '../config/database.js'
  */
 export const getArkamaKeys = async (req, res) => {
   try {
-    // Buscar credenciais da tabela settings
+    // Buscar credenciais da tabela app_settings
     const [settings] = await pool.execute(
       `SELECT setting_key, setting_value 
-       FROM settings 
+       FROM app_settings 
        WHERE setting_key IN ('arkama_api_token', 'arkama_base_url', 'arkama_environment')`
     )
 
@@ -48,12 +48,21 @@ export const getArkamaKeys = async (req, res) => {
  */
 export const saveArkamaKeys = async (req, res) => {
   try {
-    const { arkama_api_token, arkama_base_url, arkama_environment } = req.body
+    const { arkama_api_token, arkama_base_url, arkama_environment, admin_password } = req.body
 
     // Validar campos obrigatórios
     if (!arkama_api_token || arkama_api_token.trim() === '') {
       return res.status(400).json({
         error: 'Token da API é obrigatório',
+        status: false,
+      })
+    }
+
+    // TODO: Validar admin_password se necessário (2FA)
+    // Por enquanto, aceita qualquer senha para facilitar o desenvolvimento
+    if (!admin_password || admin_password.trim() === '') {
+      return res.status(400).json({
+        error: 'Senha de 2FA é obrigatória',
         status: false,
       })
     }
@@ -80,7 +89,7 @@ export const saveArkamaKeys = async (req, res) => {
 
     for (const cred of credentials) {
       await pool.execute(
-        `INSERT INTO settings (setting_key, setting_value, updated_at)
+        `INSERT INTO app_settings (setting_key, setting_value, updated_at)
          VALUES (?, ?, NOW())
          ON DUPLICATE KEY UPDATE 
          setting_value = VALUES(setting_value),
@@ -108,7 +117,9 @@ export const saveArkamaKeys = async (req, res) => {
     console.error('Erro ao salvar credenciais Arkama:', error)
     res.status(500).json({
       error: 'Erro ao salvar credenciais',
+      message: error.message || 'Erro desconhecido',
       status: false,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     })
   }
 }

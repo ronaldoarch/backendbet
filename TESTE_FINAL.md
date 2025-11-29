@@ -169,3 +169,4 @@ Parabéns! 🎉 Seu sistema está funcionando:
 4. Verifique se o IP está correto na whitelist da PlayFiver
 5. Compartilhe os erros específicos para ajudar a resolver
 
+

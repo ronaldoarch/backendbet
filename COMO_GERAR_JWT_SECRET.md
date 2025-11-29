@@ -70,3 +70,4 @@ Se você já tem usuários logados e mudar a JWT secret:
 - [ ] Adicionada no `.env` local (se necessário)
 - [ ] **NÃO** commitada no Git
 
+

@@ -15,21 +15,48 @@ async function createTransactionsTable() {
     )
 
     if (tables.length > 0) {
-      console.log('✅ Tabela transactions já existe!')
-      return
+      console.log('⚠️  Tabela transactions já existe!')
+      console.log('🔍 Verificando estrutura da tabela...')
+      
+      // Verificar se a coluna user_id é BIGINT UNSIGNED
+      const [columns] = await pool.execute(
+        `SELECT COLUMN_TYPE 
+         FROM INFORMATION_SCHEMA.COLUMNS 
+         WHERE TABLE_SCHEMA = DATABASE() 
+         AND TABLE_NAME = 'transactions' 
+         AND COLUMN_NAME = 'user_id'`
+      )
+      
+      if (columns.length > 0) {
+        const columnType = columns[0].COLUMN_TYPE
+        if (columnType.includes('bigint') && columnType.includes('unsigned')) {
+          console.log('✅ Tabela transactions já está com a estrutura correta!')
+          return
+        } else {
+          console.log(`⚠️  Coluna user_id é ${columnType}, precisa ser BIGINT UNSIGNED`)
+          console.log('🗑️  Removendo tabela antiga...')
+          await pool.execute('DROP TABLE IF EXISTS transactions')
+          console.log('✅ Tabela antiga removida!')
+        }
+      } else {
+        console.log('⚠️  Coluna user_id não encontrada, recriando tabela...')
+        await pool.execute('DROP TABLE IF EXISTS transactions')
+      }
     }
 
     // Criar tabela
     await pool.execute(`
       CREATE TABLE transactions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        type ENUM('deposit', 'withdrawal') NOT NULL,
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id BIGINT UNSIGNED NOT NULL,
+        type ENUM('deposit', 'withdrawal', 'bonus', 'win', 'bet', 'refund') NOT NULL,
         amount DECIMAL(10, 2) NOT NULL,
-        status ENUM('pending', 'completed', 'failed', 'cancelled') DEFAULT 'pending',
-        payment_method VARCHAR(50) DEFAULT 'arkama',
-        payment_id VARCHAR(255) NULL,
-        payment_data TEXT NULL,
+        currency VARCHAR(10) DEFAULT 'BRL',
+        gateway VARCHAR(50) NOT NULL DEFAULT 'arkama',
+        status ENUM('pending', 'completed', 'failed', 'canceled', 'refunded', 'processing') DEFAULT 'pending',
+        payment_id VARCHAR(255) NULL UNIQUE,
+        description TEXT NULL,
+        metadata JSON NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_user_id (user_id),

@@ -86,3 +86,4 @@ https://api.betgeniusbr.com/api/payments/arkama-webhook
 - O backend deve estar **rodando** e **acessível**
 - O endpoint `/api/payments/arkama-webhook` deve estar **funcionando**
 
+

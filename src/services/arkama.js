@@ -6,20 +6,39 @@ async function getArkamaCredentials() {
   try {
     const [settings] = await pool.execute(
       `SELECT setting_key, setting_value 
-       FROM settings 
-       WHERE setting_key IN ('arkama_api_token', 'arkama_base_url')`
+       FROM app_settings 
+       WHERE setting_key IN ('arkama_api_token', 'arkama_base_url', 'arkama_environment')`
     )
 
     let apiToken = process.env.ARKAMA_API_TOKEN || ''
     let baseUrl = process.env.ARKAMA_BASE_URL || 'https://sandbox.arkama.com.br/api/v1'
+    let environment = process.env.ARKAMA_ENVIRONMENT || 'sandbox'
 
     settings.forEach(setting => {
       if (setting.setting_key === 'arkama_api_token') {
         apiToken = setting.setting_value || apiToken
       } else if (setting.setting_key === 'arkama_base_url') {
         baseUrl = setting.setting_value || baseUrl
+      } else if (setting.setting_key === 'arkama_environment') {
+        environment = setting.setting_value || environment
       }
     })
+
+    // Se não houver URL base definida, definir baseado no ambiente
+    if (!baseUrl || baseUrl === 'https://sandbox.arkama.com.br/api/v1') {
+      switch (environment) {
+        case 'production':
+          baseUrl = 'https://app.arkama.com.br/api/v1'
+          break
+        case 'beta':
+          baseUrl = 'https://beta.arkama.com.br/api/v1'
+          break
+        case 'sandbox':
+        default:
+          baseUrl = 'https://sandbox.arkama.com.br/api/v1'
+          break
+      }
+    }
 
     return { apiToken, baseUrl }
   } catch (error) {

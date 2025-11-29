@@ -110,3 +110,4 @@ curl https://api.betgeniusbr.com/api/health
 4. Verifique se o Coolify está configurado para aceitar o domínio
 5. Verifique os logs do Coolify
 
+

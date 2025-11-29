@@ -103,3 +103,4 @@ https://qoo8wgogo4ow4gsg0k0wk4g4.agenciamidas.com/api/payments/arkama-webhook
 4. **Verifique os logs:**
    - Veja se há erros nos logs do Coolify
 
+
