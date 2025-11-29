@@ -154,8 +154,8 @@ export const getFeaturedGames = async (req, res) => {
  */
 export const getCasinoGames = async (req, res) => {
   try {
-    const { provider, category, searchTerm, page = 1 } = req.query
-    const perPage = 12
+    const { provider, category, searchTerm, page = 1, per_page = 12 } = req.query
+    const perPage = parseInt(per_page) || 12
     const offset = (parseInt(page) - 1) * perPage
 
     const cacheKey = generateCacheKey('games.all', { provider, category, searchTerm, page })
