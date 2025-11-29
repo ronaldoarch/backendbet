@@ -107,6 +107,7 @@ export const createOrder = async (data) => {
     // Se enviar 'value', não pode enviar 'total_value'
     const requestBody = {
       value: amountValue.toFixed(2), // Campo obrigatório (não enviar total_value quando value está presente)
+      payment_method: 'pix', // Campo obrigatório - método de pagamento
       user_email: data.user_email,
       user_name: data.user_name || data.user_email,
       description: data.description || 'Depósito na plataforma',
