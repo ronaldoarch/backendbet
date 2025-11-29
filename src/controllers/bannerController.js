@@ -124,11 +124,16 @@ export const createBanner = async (req, res) => {
     const imageLength = image ? image.length : 0
     console.log(`[Banner] Recebendo imagem com ${imageLength} caracteres (${(imageLength / 1024).toFixed(2)} KB)`)
     
-    // Verificar tipo da coluna no banco antes de inserir
+    // Verificar tipo da coluna no banco antes de inserir (com timeout)
     try {
-      const [columnInfo] = await pool.execute(
-        "SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'banners' AND COLUMN_NAME = 'image'"
-      )
+      const [columnInfo] = await Promise.race([
+        pool.execute(
+          "SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'banners' AND COLUMN_NAME = 'image'"
+        ),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout na verificação da coluna')), 3000)
+        )
+      ])
       if (columnInfo && columnInfo.length > 0) {
         const columnType = columnInfo[0].COLUMN_TYPE
         console.log(`[Banner] Tipo da coluna image no banco: ${columnType}`)
@@ -137,20 +142,22 @@ export const createBanner = async (req, res) => {
         if (!columnType.includes('mediumtext') && !columnType.includes('longtext')) {
           console.warn(`[Banner] ⚠️ Coluna não é MEDIUMTEXT! Tipo atual: ${columnType}. Tentando alterar...`)
           try {
-            await pool.execute('ALTER TABLE banners MODIFY COLUMN image MEDIUMTEXT NOT NULL')
+            await Promise.race([
+              pool.execute('ALTER TABLE banners MODIFY COLUMN image MEDIUMTEXT NOT NULL'),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout ao alterar coluna')), 5000)
+              )
+            ])
             console.log('[Banner] ✅ Coluna alterada para MEDIUMTEXT com sucesso!')
           } catch (alterError) {
             console.error('[Banner] ❌ Erro ao alterar coluna:', alterError.message)
-            return res.status(500).json({
-              error: 'Erro ao configurar banco de dados. A coluna image precisa ser MEDIUMTEXT.',
-              status: false,
-              details: alterError.message,
-            })
+            // Não falhar, apenas avisar
           }
         }
       }
     } catch (checkError) {
       console.warn('[Banner] Não foi possível verificar tipo da coluna:', checkError.message)
+      // Continuar mesmo se não conseguir verificar
     }
 
     // MEDIUMTEXT suporta até 16MB, então não precisamos truncar
@@ -183,29 +190,42 @@ export const createBanner = async (req, res) => {
       console.warn(`[Banner] Isso pode indicar que a imagem já veio truncada do frontend ou foi truncada em algum lugar.`)
     }
 
-    // Inserir banner
+    // Inserir banner (com timeout)
     let result
     try {
-      [result] = await pool.execute(
-        `INSERT INTO banners (link, image, type, description, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
-        [
-          link || null,
-          imageValue,
-          type || 'home',
-          description || null,
-          status !== false,
-        ]
-      )
+      [result] = await Promise.race([
+        pool.execute(
+          `INSERT INTO banners (link, image, type, description, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+          [
+            link || null,
+            imageValue,
+            type || 'home',
+            description || null,
+            status !== false,
+          ]
+        ),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout ao inserir banner')), 8000)
+        )
+      ])
     } catch (insertError) {
       console.error('[Banner] ❌ Erro ao inserir no banco:', insertError.message)
       console.error('[Banner] Código do erro:', insertError.code)
       
-      if (insertError.code === 'ER_DATA_TOO_LONG') {
+      if (insertError.code === 'ER_DATA_TOO_LONG' || insertError.message.includes('Data too long')) {
         return res.status(500).json({
           error: 'A imagem é muito grande para a coluna atual. A coluna precisa ser MEDIUMTEXT.',
           status: false,
           details: `Tamanho da imagem: ${imageValue.length} caracteres. Execute: npm run fix-banner-column`,
+        })
+      }
+      
+      if (insertError.message.includes('Timeout')) {
+        return res.status(504).json({
+          error: 'Timeout ao salvar banner. Tente novamente.',
+          status: false,
+          message: insertError.message,
         })
       }
       
@@ -215,11 +235,23 @@ export const createBanner = async (req, res) => {
     // Obter ID do banner inserido
     const bannerId = result.insertId
     
-    // Verificar se foi salvo corretamente
-    const [savedBanner] = await pool.execute(
-      'SELECT id, LENGTH(image) as image_length FROM banners WHERE id = ?',
-      [bannerId]
-    )
+    // Verificar se foi salvo corretamente (com timeout, não crítico)
+    let savedBanner
+    try {
+      [savedBanner] = await Promise.race([
+        pool.execute(
+          'SELECT id, LENGTH(image) as image_length FROM banners WHERE id = ?',
+          [bannerId]
+        ),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout na verificação')), 5000)
+        )
+      ])
+    } catch (verifyError) {
+      console.warn('[Banner] Erro ao verificar banner salvo (não crítico):', verifyError.message)
+      // Continuar mesmo se não conseguir verificar
+      savedBanner = []
+    }
     
     if (savedBanner && savedBanner.length > 0) {
       const savedLength = savedBanner[0].image_length
@@ -253,11 +285,11 @@ export const createBanner = async (req, res) => {
       }
     }
 
-    // Invalidar cache de banners
-    await cache.clear('api.banners*')
-    await cache.del('api.banners')
-    await cache.del('api.banners.carousel')
-    await cache.del('api.banners.home')
+    // Invalidar cache de banners (sem bloquear)
+    cache.clear('api.banners*').catch(() => {})
+    cache.del('api.banners').catch(() => {})
+    cache.del('api.banners.carousel').catch(() => {})
+    cache.del('api.banners.home').catch(() => {})
     console.log('Cache de banners limpo após criar banner')
 
     const [newBanner] = await pool.execute(

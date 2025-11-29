@@ -93,6 +93,7 @@ export const savePlayfiverKeys = async (req, res) => {
       has_code: !!playfiver_code,
       has_token: !!playfiver_token,
       has_secret: !!playfiver_secret,
+      has_callback: !!callback_url,
       has_password: !!admin_password,
     })
 
@@ -120,54 +121,100 @@ export const savePlayfiverKeys = async (req, res) => {
       })
     }
 
-    // Verificar se já existe registro
-    const [existing] = await pool.execute(
-      'SELECT id FROM games_keys ORDER BY id DESC LIMIT 1'
-    )
-
-    console.log('[PlayFiver Keys] Registro existente:', existing && existing.length > 0 ? `ID: ${existing[0].id}` : 'Nenhum')
-
-    if (existing && existing.length > 0) {
-      // Atualizar registro existente
-      const [result] = await pool.execute(
-        `UPDATE games_keys SET
-          playfiver_code = ?,
-          playfiver_token = ?,
-          playfiver_secret = ?,
-          callback_url = ?,
-          updated_at = NOW()
-        WHERE id = ?`,
-        [
-          playfiver_code || null,
-          playfiver_token.trim(),
-          playfiver_secret.trim(),
-          callback_url || null,
-          existing[0].id,
-        ]
-      )
-      console.log('[PlayFiver Keys] Registro atualizado. Linhas afetadas:', result.affectedRows)
-    } else {
-      // Criar novo registro
-      const [result] = await pool.execute(
-        `INSERT INTO games_keys (
-          playfiver_code, playfiver_token, playfiver_secret, callback_url, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, NOW(), NOW())`,
-        [playfiver_code || null, playfiver_token.trim(), playfiver_secret.trim(), callback_url || null]
-      )
-      console.log('[PlayFiver Keys] Novo registro criado. ID:', result.insertId)
+    // Verificar conexão com banco
+    let existing
+    try {
+      [existing] = await Promise.race([
+        pool.execute('SELECT id FROM games_keys ORDER BY id DESC LIMIT 1'),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout na conexão com banco')), 8000)
+        )
+      ])
+      console.log('[PlayFiver Keys] Registro existente:', existing && existing.length > 0 ? `ID: ${existing[0].id}` : 'Nenhum')
+    } catch (dbError) {
+      console.error('[PlayFiver Keys] Erro ao verificar registro existente:', dbError.message)
+      return res.status(500).json({
+        error: 'Erro ao conectar com banco de dados',
+        message: dbError.message,
+        status: false,
+      })
     }
 
-    // Verificar se foi salvo corretamente
-    const [verify] = await pool.execute(
-      'SELECT playfiver_code, playfiver_token, playfiver_secret FROM games_keys ORDER BY id DESC LIMIT 1'
-    )
-    
-    if (verify && verify.length > 0) {
-      console.log('[PlayFiver Keys] Verificação - Valores salvos:', {
-        code: verify[0].playfiver_code,
-        token: verify[0].playfiver_token ? verify[0].playfiver_token.substring(0, 20) + '...' : 'vazio',
-        secret: verify[0].playfiver_secret ? verify[0].playfiver_secret.substring(0, 20) + '...' : 'vazio',
-      })
+    try {
+      if (existing && existing.length > 0) {
+        // Atualizar registro existente
+        const [result] = await Promise.race([
+          pool.execute(
+            `UPDATE games_keys SET
+              playfiver_code = ?,
+              playfiver_token = ?,
+              playfiver_secret = ?,
+              callback_url = ?,
+              updated_at = NOW()
+            WHERE id = ?`,
+            [
+              playfiver_code || null,
+              playfiver_token.trim(),
+              playfiver_secret.trim(),
+              callback_url || null,
+              existing[0].id,
+            ]
+          ),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout ao atualizar')), 8000)
+          )
+        ])
+        console.log('[PlayFiver Keys] Registro atualizado. Linhas afetadas:', result.affectedRows)
+      } else {
+        // Criar novo registro
+        const [result] = await Promise.race([
+          pool.execute(
+            `INSERT INTO games_keys (
+              playfiver_code, playfiver_token, playfiver_secret, callback_url, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, NOW(), NOW())`,
+            [playfiver_code || null, playfiver_token.trim(), playfiver_secret.trim(), callback_url || null]
+          ),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout ao inserir')), 8000)
+          )
+        ])
+        console.log('[PlayFiver Keys] Novo registro criado. ID:', result.insertId)
+      }
+    } catch (updateError) {
+      console.error('[PlayFiver Keys] Erro ao salvar no banco:', updateError.message)
+      // Verificar se é erro de coluna não existente
+      if (updateError.message && updateError.message.includes('Unknown column')) {
+        return res.status(400).json({
+          error: 'Estrutura da tabela incompleta',
+          message: 'A coluna callback_url não existe. Execute o script SQL para atualizar a tabela.',
+          status: false,
+        })
+      }
+      throw updateError
+    }
+
+    // Verificar se foi salvo corretamente (com timeout)
+    try {
+      const [verify] = await Promise.race([
+        pool.execute(
+          'SELECT playfiver_code, playfiver_token, playfiver_secret, callback_url FROM games_keys ORDER BY id DESC LIMIT 1'
+        ),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout na verificação')), 5000)
+        )
+      ])
+      
+      if (verify && verify.length > 0) {
+        console.log('[PlayFiver Keys] Verificação - Valores salvos:', {
+          code: verify[0].playfiver_code || 'vazio',
+          token: verify[0].playfiver_token ? verify[0].playfiver_token.substring(0, 20) + '...' : 'vazio',
+          secret: verify[0].playfiver_secret ? verify[0].playfiver_secret.substring(0, 20) + '...' : 'vazio',
+          callback: verify[0].callback_url || 'vazio',
+        })
+      }
+    } catch (verifyError) {
+      console.warn('[PlayFiver Keys] Erro ao verificar (não crítico):', verifyError.message)
+      // Não falhar se a verificação der erro
     }
 
     res.json({
@@ -181,6 +228,7 @@ export const savePlayfiverKeys = async (req, res) => {
       error: 'Erro ao salvar chaves PlayFiver',
       message: error.message,
       status: false,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     })
   }
 }
