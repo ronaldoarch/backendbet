@@ -80,14 +80,34 @@ export const createDeposit = async (req, res) => {
 
     const transactionId = result.insertId
 
-    // Retornar URL de pagamento
+    // Extrair dados do PIX da resposta da Arkama
+    // A Arkama pode retornar: qr_code, pix_code, qr_code_base64, pix_copia_cola, etc.
+    const qrCode = orderData.qr_code || 
+                   orderData.qr_code_base64 || 
+                   orderData.qrcode || 
+                   orderData.qrCode ||
+                   orderData.pix?.qr_code ||
+                   orderData.pix?.qr_code_base64 ||
+                   null
+
+    const pixCode = orderData.pix_code || 
+                    orderData.pix_copia_cola || 
+                    orderData.pixCode ||
+                    orderData.pix?.pix_copia_cola ||
+                    orderData.pix?.payload ||
+                    orderData.pix?.pix_code ||
+                    null
+
+    // Retornar dados de pagamento
     res.json({
       success: true,
       transaction_id: transactionId,
-      payment_url: orderData.payment_url || orderData.url,
+      payment_url: orderData.payment_url || orderData.url || orderData.link,
+      qr_code: qrCode,
+      pix_code: pixCode,
       order_id: orderData.id || orderData.order_id,
       status: orderData.status,
-      message: 'Pagamento criado com sucesso. Redirecione o usuário para a URL de pagamento.',
+      message: 'Pagamento criado com sucesso.',
     })
   } catch (error) {
     console.error('[PaymentController] Erro ao criar depósito:', error)
