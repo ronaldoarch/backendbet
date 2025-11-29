@@ -8,21 +8,37 @@ import { cache } from '../config/redis.js'
 export const getProviders = async (req, res) => {
   try {
     const cacheKey = 'api.providers'
-    const cached = await cache.get(cacheKey)
     
-    if (cached) {
-      return res.json(cached)
+    // Tentar buscar do cache (com timeout curto)
+    try {
+      const cached = await Promise.race([
+        cache.get(cacheKey),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Cache timeout')), 1000))
+      ])
+      if (cached) {
+        return res.json(cached)
+      }
+    } catch (cacheError) {
+      // Ignorar erro de cache, continuar com query
+      console.warn('Cache não disponível, usando query direta')
     }
 
-    const [providers] = await pool.execute(
-      `SELECT id, code, name, cover, status, distribution
-       FROM providers
-       WHERE status = 1
-       ORDER BY name`
-    )
+    const [providers] = await Promise.race([
+      pool.execute(
+        `SELECT id, code, name, cover, status, distribution
+         FROM providers
+         WHERE status = 1
+         ORDER BY name`
+      ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 8000))
+    ])
 
     const response = { providers }
-    await cache.set(cacheKey, response, 3600) // 1 hora
+    
+    // Tentar salvar no cache (sem bloquear)
+    cache.set(cacheKey, response, 300).catch(() => {
+      // Ignorar erro de cache
+    }) // Cache de 5 minutos (reduzido)
 
     res.json(response)
   } catch (error) {
@@ -30,6 +46,7 @@ export const getProviders = async (req, res) => {
     res.status(500).json({
       error: 'Erro ao buscar provedores',
       status: false,
+      message: error.message,
     })
   }
 }
@@ -98,8 +115,8 @@ export const createProvider = async (req, res) => {
       ]
     )
 
-    // Invalidar cache
-    await cache.clear('api.providers*')
+    // Invalidar cache (sem bloquear)
+    cache.clear('api.providers*').catch(() => {})
 
     const [newProvider] = await pool.execute(
       'SELECT * FROM providers WHERE id = ?',
@@ -189,8 +206,8 @@ export const updateProvider = async (req, res) => {
       updateValues
     )
 
-    // Invalidar cache
-    await cache.clear('api.providers*')
+    // Invalidar cache (sem bloquear)
+    cache.clear('api.providers*').catch(() => {})
 
     const [updatedProvider] = await pool.execute(
       'SELECT * FROM providers WHERE id = ?',
@@ -247,8 +264,8 @@ export const deleteProvider = async (req, res) => {
     // Deletar provedor
     await pool.execute('DELETE FROM providers WHERE id = ?', [id])
 
-    // Invalidar cache
-    await cache.clear('api.providers*')
+    // Invalidar cache (sem bloquear)
+    cache.clear('api.providers*').catch(() => {})
 
     res.json({
       message: 'Provedor excluído com sucesso',
