@@ -26,14 +26,47 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }))
 
-// CORS
+// CORS - Permitir múltiplas origens
+const allowedOrigins = [
+  'https://betgeniusbr.com',
+  'http://betgeniusbr.com',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5174',
+]
+
+// Adicionar CORS_ORIGIN do .env se existir
+if (process.env.CORS_ORIGIN) {
+  const origins = process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+  allowedOrigins.push(...origins)
+}
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Permitir requisições sem origin (mobile apps, Postman, etc)
+    if (!origin) {
+      return callback(null, true)
+    }
+    
+    // Verificar se a origem está na lista permitida
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true)
+    } else {
+      // Em desenvolvimento, permitir qualquer origem
+      if (process.env.NODE_ENV === 'development') {
+        callback(null, true)
+      } else {
+        console.warn(`[CORS] Origem bloqueada: ${origin}`)
+        callback(new Error('Not allowed by CORS'))
+      }
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  // Permitir requisições do PlayFiver (webhooks)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['Content-Type'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 }))
 
 // Rate limiting
