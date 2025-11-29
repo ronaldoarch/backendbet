@@ -104,7 +104,20 @@ export const createDeposit = async (req, res) => {
  */
 export const arkamaWebhook = async (req, res) => {
   try {
+    // Responder imediatamente para validação de postback
+    // A Arkama pode fazer requisições de teste antes de salvar
+    res.status(200).json({
+      success: true,
+      message: 'Webhook recebido',
+    })
+
     const webhookData = req.body
+
+    // Se não houver dados, é apenas uma validação
+    if (!webhookData || Object.keys(webhookData).length === 0) {
+      console.log('[PaymentController] Validação de postback recebida')
+      return
+    }
 
     console.log('[PaymentController] Webhook Arkama recebido:', {
       order_id: webhookData.id || webhookData.order_id,
@@ -185,15 +198,17 @@ export const arkamaWebhook = async (req, res) => {
       })
     }
 
-    res.json({
-      success: true,
-      message: 'Webhook processado',
-    })
+    // Já respondemos no início, então não precisa responder novamente
+    // Mas vamos logar o sucesso
+    console.log('[PaymentController] Webhook processado com sucesso')
   } catch (error) {
     console.error('[PaymentController] Erro ao processar webhook:', error)
-    res.status(500).json({
-      error: 'Erro ao processar webhook',
-    })
+    // Se ainda não respondeu, responder com erro
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: 'Erro ao processar webhook',
+      })
+    }
   }
 }
 

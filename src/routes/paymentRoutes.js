@@ -8,6 +8,15 @@ const router = express.Router()
 router.post('/deposit', authenticateToken, paymentController.createDeposit)
 
 // Webhook da Arkama (público, sem autenticação)
+// Aceita GET para validação e POST para webhooks
+router.get('/arkama-webhook', (req, res) => {
+  // Responder para validação de postback (GET)
+  res.status(200).json({
+    success: true,
+    message: 'Webhook endpoint está ativo',
+  })
+})
+
 router.post('/arkama-webhook', paymentController.arkamaWebhook)
 
 // Verificar status de transação
