@@ -174,10 +174,17 @@ export const getCasinoGames = async (req, res) => {
     `
     const params = []
 
-    // Filtro por provedor
-    if (provider && provider !== 'all') {
-      query += ' AND g.provider_id = ?'
-      params.push(provider)
+    // Filtro por provedor (pode ser ID ou nome)
+    if (provider && provider !== 'all' && provider !== 'todos') {
+      // Tentar como ID primeiro
+      if (!isNaN(provider)) {
+        query += ' AND g.provider_id = ?'
+        params.push(parseInt(provider))
+      } else {
+        // Se não for número, buscar por nome ou código do provedor
+        query += ' AND (p.name = ? OR p.code = ? OR p.distribution = ?)'
+        params.push(provider, provider, provider)
+      }
     }
 
     // Filtro por categoria
@@ -193,18 +200,18 @@ export const getCasinoGames = async (req, res) => {
       params.push(category)
     }
 
-    // Busca por termo
-    if (searchTerm && searchTerm.length >= 3) {
+    // Busca por termo (mínimo 2 caracteres)
+    if (searchTerm && searchTerm.length >= 2) {
       query += ' AND (g.game_name LIKE ? OR g.game_code LIKE ? OR g.distribution LIKE ? OR p.name LIKE ?)'
       const searchPattern = `%${searchTerm}%`
       params.push(searchPattern, searchPattern, searchPattern, searchPattern)
     }
 
     // Ordenação
-    if (searchTerm && searchTerm.length >= 3) {
+    if (searchTerm && searchTerm.length >= 2) {
       query += ' ORDER BY g.game_name ASC'
     } else {
-      query += ' ORDER BY g.views DESC'
+      query += ' ORDER BY g.views DESC, g.game_name ASC'
     }
 
     // Contar total
