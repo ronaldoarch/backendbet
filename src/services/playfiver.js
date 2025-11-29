@@ -39,7 +39,7 @@ const tryWithHostname = async (body) => {
         'Accept': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
-      timeout: 60000,
+      timeout: 8000, // 8 segundos (Vercel tem limite de 10s no plano gratuito)
       validateStatus: (status) => status < 500,
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
@@ -62,7 +62,7 @@ const tryWithHostname = async (body) => {
         -H "Accept: application/json" \\
         -d '${JSON.stringify(body).replace(/'/g, "'\\''")}' \\
         --insecure \\
-        --max-time 60 \\
+        --max-time 8 \\
         --silent \\
         --show-error \\
         -w "\\n%{http_code}" 2>&1`
@@ -109,7 +109,7 @@ const tryWithHostname = async (body) => {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Host': PLAYFIVER_HOST,
           },
-          timeout: 60000,
+          timeout: 8000, // 8 segundos (Vercel tem limite de 10s no plano gratuito)
           validateStatus: (status) => status < 500,
           maxContentLength: Infinity,
           maxBodyLength: Infinity,
@@ -144,19 +144,20 @@ const tryWithHostname = async (body) => {
  * Lançar jogo no PlayFiver com múltiplas estratégias de fallback
  */
 export const playFiverLaunch = async (gameId, userEmail, userBalance, credentials) => {
-  const { playfiver_token, playfiver_secret, playfiver_code } = credentials
+  const { playfiver_token, playfiver_secret, playfiver_code, game_original } = credentials
 
   if (!playfiver_token || !playfiver_secret) {
     throw new Error('Credenciais PlayFiver não configuradas')
   }
 
   // Montar body conforme documentação: https://api.playfivers.com/docs/api
+  // Documentação: POST /api/v2/game_launch
   const body = {
     agentToken: playfiver_token,
     secretKey: playfiver_secret,
     user_code: userEmail,
     game_code: gameId,
-    game_original: true,
+    game_original: game_original !== undefined ? game_original : true, // Usar do banco ou true como padrão
     user_balance: parseFloat(userBalance).toFixed(2),
     lang: 'pt', // Português conforme documentação
     // user_rtp é opcional, pode ser adicionado se necessário

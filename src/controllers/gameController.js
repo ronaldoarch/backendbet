@@ -372,7 +372,10 @@ export const getSingleGame = async (req, res) => {
         game.game_id || game.game_code,
         user.email,
         balanceToUse, // Usar balanceToUse em vez de totalBalance
-        keys[0]
+        {
+          ...keys[0],
+          game_original: game.original !== undefined ? game.original : true, // Usar game_original do banco
+        }
       )
 
       // Conforme documentação: https://api.playfivers.com/docs/api
