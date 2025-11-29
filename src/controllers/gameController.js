@@ -488,9 +488,6 @@ export const getSingleGame = async (req, res) => {
     })
   }
 }
-    })
-  }
-}
 
 /**
  * POST /api/games/favorite/:id
