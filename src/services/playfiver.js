@@ -125,7 +125,15 @@ export const playFiverLaunch = async (gameId, userEmail, userBalance, credential
     // user_rtp é opcional, pode ser adicionado se necessário
   }
 
-  console.log('[PlayFiver] Tentando lançar jogo:', { gameId, userEmail, userBalance })
+  console.log('[PlayFiver] Tentando lançar jogo:', { 
+    gameId, 
+    userEmail, 
+    userBalance,
+    game_original,
+    hasToken: !!playfiver_token,
+    hasSecret: !!playfiver_secret,
+  })
+  console.log('[PlayFiver] Body completo:', JSON.stringify(body, null, 2))
 
   // Tentar apenas com hostname (IP direto causa erro SSL)
   console.log('[PlayFiver] Tentando conexão com hostname...')

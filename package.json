@@ -16,6 +16,7 @@
         "populate-providers-games": "node src/database/populate_providers_and_games.js",
         "update-game-images": "node src/database/update_game_images.js",
         "update-playfiver-ids": "node src/database/update_playfiver_game_ids.js",
+        "test-game-launch": "node src/database/test_game_launch.js",
     "pm2:start": "pm2 start src/server.js --name betgenius-api",
     "pm2:stop": "pm2 stop betgenius-api",
     "pm2:restart": "pm2 restart betgenius-api",

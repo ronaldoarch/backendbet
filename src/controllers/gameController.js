@@ -381,18 +381,31 @@ export const getSingleGame = async (req, res) => {
 
     // Lançar jogo no PlayFiver
     try {
-      console.log('[GameController] Iniciando lançamento do jogo:', {
-        gameId: game.id,
-        gameCode: game.game_id || game.game_code,
-        userEmail: user.email,
-        balance: balanceToUse,
-        gameOriginal: game.original,
-        hasCredentials: !!(keys[0] && keys[0].playfiver_token),
-      })
+      const gameCodeToUse = game.game_id || game.game_code
+      
+      console.log('[GameController] ========== DETALHES DO JOGO ==========')
+      console.log('[GameController] ID do banco:', game.id)
+      console.log('[GameController] Nome:', game.game_name)
+      console.log('[GameController] game_code (banco):', game.game_code)
+      console.log('[GameController] game_id (banco):', game.game_id || '(vazio)')
+      console.log('[GameController] Código que será enviado:', gameCodeToUse)
+      console.log('[GameController] Provedor:', game.provider_name, `(${game.provider_code})`)
+      console.log('[GameController] Original:', game.original)
+      console.log('[GameController] User:', user.email)
+      console.log('[GameController] Balance:', balanceToUse)
+      console.log('[GameController] ======================================\n')
+
+      if (!gameCodeToUse) {
+        return res.status(500).json({
+          error: 'Código do jogo não encontrado. O jogo precisa ter game_id ou game_code configurado.',
+          status: false,
+          details: 'Execute: npm run update-playfiver-ids para atualizar os IDs dos jogos',
+        })
+      }
 
       const playfiverResponse = await Promise.race([
         playFiverLaunch(
-          game.game_id || game.game_code,
+          gameCodeToUse,
           user.email,
           balanceToUse, // Usar balanceToUse em vez de totalBalance
           {
