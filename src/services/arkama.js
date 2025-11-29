@@ -100,15 +100,32 @@ export const createOrder = async (data) => {
       user_email: data.user_email,
     })
 
-    const response = await api.post('/orders', {
-      amount: data.amount,
+    // Converter amount para número e garantir formato correto
+    const amountValue = parseFloat(data.amount)
+    
+    // A API Arkama pode esperar 'value' ou 'total_value' ao invés de 'amount'
+    const requestBody = {
+      value: amountValue.toFixed(2), // Campo obrigatório
+      total_value: amountValue.toFixed(2), // Campo alternativo
+      amount: amountValue.toFixed(2), // Manter para compatibilidade
       user_email: data.user_email,
       user_name: data.user_name || data.user_email,
       description: data.description || 'Depósito na plataforma',
       callback_url: data.callback_url,
       return_url: data.return_url,
-      token: apiToken, // Alternativa: enviar token no body
+    }
+
+    // Adicionar token no body se necessário (algumas APIs esperam assim)
+    if (apiToken) {
+      requestBody.token = apiToken
+    }
+
+    console.log('[Arkama] Enviando requisição:', {
+      ...requestBody,
+      token: apiToken ? '***' : 'não fornecido',
     })
+
+    const response = await api.post('/orders', requestBody)
 
     console.log('[Arkama] Compra criada com sucesso:', {
       order_id: response.data.id,
