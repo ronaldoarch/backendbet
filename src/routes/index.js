@@ -5,6 +5,7 @@ import categoryRoutes from './categoryRoutes.js'
 import settingsRoutes from './settingsRoutes.js'
 import walletRoutes from './walletRoutes.js'
 import webhookRoutes from './webhookRoutes.js'
+import paymentRoutes from './paymentRoutes.js'
 import adminRoutes from './adminRoutes.js'
 import * as providerController from '../controllers/providerController.js'
 import * as gameController from '../controllers/gameController.js'
@@ -18,6 +19,7 @@ router.use('/categories', categoryRoutes)
 router.use('/settings', settingsRoutes)
 router.use('/profile', walletRoutes)
 router.use('/playfiver', webhookRoutes)
+router.use('/payments', paymentRoutes)
 router.use('/admin', adminRoutes)
 router.get('/providers', providerController.getProviders)
 router.get('/banners', bannerController.getBanners) // Public banners route

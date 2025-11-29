@@ -18,6 +18,7 @@
         "update-playfiver-ids": "node src/database/update_playfiver_game_ids.js",
         "test-game-launch": "node src/database/test_game_launch.js",
         "get-ip": "node src/database/get_vercel_ip.js",
+        "create-transactions-table": "node src/database/create_transactions_table.js",
     "pm2:start": "pm2 start src/server.js --name betgenius-api",
     "pm2:stop": "pm2 stop betgenius-api",
     "pm2:restart": "pm2 restart betgenius-api",
