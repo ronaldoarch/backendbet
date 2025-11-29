@@ -1,6 +1,7 @@
 import express from 'express'
 import * as adminGameController from '../controllers/adminGameController.js'
 import * as playfiverKeysController from '../controllers/playfiverKeysController.js'
+import * as arkamaKeysController from '../controllers/arkamaKeysController.js'
 import * as providerController from '../controllers/providerController.js'
 import * as bannerController from '../controllers/bannerController.js'
 // import { authenticateToken } from '../middleware/auth.js'
@@ -20,6 +21,10 @@ router.delete('/games/:id', adminGameController.deleteGame)
 router.get('/playfiver-keys', playfiverKeysController.getPlayfiverKeys)
 router.post('/playfiver-keys', playfiverKeysController.savePlayfiverKeys)
 router.put('/playfiver-keys/info', playfiverKeysController.updatePlayfiverInfo)
+
+// Arkama Keys
+router.get('/arkama-keys', arkamaKeysController.getArkamaKeys)
+router.post('/arkama-keys', arkamaKeysController.saveArkamaKeys)
 
 // Providers
 router.get('/providers', providerController.getAllProviders)

@@ -1,22 +1,59 @@
 import axios from 'axios'
+import pool from '../config/database.js'
 
-const ARKAMA_BASE_URL = process.env.ARKAMA_BASE_URL || 'https://sandbox.arkama.com.br/api/v1'
-const ARKAMA_API_TOKEN = process.env.ARKAMA_API_TOKEN || ''
+// Função para obter credenciais do banco
+async function getArkamaCredentials() {
+  try {
+    const [settings] = await pool.execute(
+      `SELECT setting_key, setting_value 
+       FROM settings 
+       WHERE setting_key IN ('arkama_api_token', 'arkama_base_url')`
+    )
+
+    let apiToken = process.env.ARKAMA_API_TOKEN || ''
+    let baseUrl = process.env.ARKAMA_BASE_URL || 'https://sandbox.arkama.com.br/api/v1'
+
+    settings.forEach(setting => {
+      if (setting.setting_key === 'arkama_api_token') {
+        apiToken = setting.setting_value || apiToken
+      } else if (setting.setting_key === 'arkama_base_url') {
+        baseUrl = setting.setting_value || baseUrl
+      }
+    })
+
+    return { apiToken, baseUrl }
+  } catch (error) {
+    console.error('[Arkama] Erro ao buscar credenciais:', error)
+    return {
+      apiToken: process.env.ARKAMA_API_TOKEN || '',
+      baseUrl: process.env.ARKAMA_BASE_URL || 'https://sandbox.arkama.com.br/api/v1',
+    }
+  }
+}
 
 /**
  * Serviço para integração com gateway de pagamento Arkama
  * Documentação: https://arkama.readme.io/reference/intro
  */
 
-const arkamaApi = axios.create({
-  baseURL: ARKAMA_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-    'User-Agent': 'BetGenius-Casino',
-    'Authorization': `Bearer ${ARKAMA_API_TOKEN}`,
-  },
-  timeout: 30000,
-})
+// Criar instância do axios (será configurada dinamicamente)
+let arkamaApi = null
+
+async function getArkamaApi() {
+  if (!arkamaApi) {
+    const { apiToken, baseUrl } = await getArkamaCredentials()
+    arkamaApi = axios.create({
+      baseURL: baseUrl,
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'BetGenius-Casino',
+        'Authorization': `Bearer ${apiToken}`,
+      },
+      timeout: 30000,
+    })
+  }
+  return arkamaApi
+}
 
 /**
  * Criar uma compra (depósito)
@@ -31,19 +68,22 @@ const arkamaApi = axios.create({
  */
 export const createOrder = async (data) => {
   try {
+    const { apiToken } = await getArkamaCredentials()
+    const api = await getArkamaApi()
+
     console.log('[Arkama] Criando compra:', {
       amount: data.amount,
       user_email: data.user_email,
     })
 
-    const response = await arkamaApi.post('/orders', {
+    const response = await api.post('/orders', {
       amount: data.amount,
       user_email: data.user_email,
       user_name: data.user_name || data.user_email,
       description: data.description || 'Depósito na plataforma',
       callback_url: data.callback_url,
       return_url: data.return_url,
-      token: ARKAMA_API_TOKEN, // Alternativa: enviar token no body
+      token: apiToken, // Alternativa: enviar token no body
     })
 
     console.log('[Arkama] Compra criada com sucesso:', {
@@ -73,11 +113,14 @@ export const createOrder = async (data) => {
  */
 export const getOrder = async (orderId) => {
   try {
+    const { apiToken } = await getArkamaCredentials()
+    const api = await getArkamaApi()
+
     console.log('[Arkama] Buscando compra:', orderId)
 
-    const response = await arkamaApi.get(`/orders/${orderId}`, {
+    const response = await api.get(`/orders/${orderId}`, {
       params: {
-        token: ARKAMA_API_TOKEN, // Alternativa: enviar token como query param
+        token: apiToken, // Alternativa: enviar token como query param
       },
     })
 
@@ -103,10 +146,13 @@ export const getOrder = async (orderId) => {
  */
 export const refundOrder = async (orderId) => {
   try {
+    const { apiToken } = await getArkamaCredentials()
+    const api = await getArkamaApi()
+
     console.log('[Arkama] Estornando compra:', orderId)
 
-    const response = await arkamaApi.post(`/orders/${orderId}/refund`, {
-      token: ARKAMA_API_TOKEN,
+    const response = await api.post(`/orders/${orderId}/refund`, {
+      token: apiToken,
     })
 
     console.log('[Arkama] Compra estornada com sucesso:', {
