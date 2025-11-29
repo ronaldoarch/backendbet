@@ -9,10 +9,19 @@ export const getBanners = async (req, res) => {
   try {
     const { type } = req.query
     const cacheKey = `api.banners${type ? `.${type}` : ''}`
-    const cached = await cache.get(cacheKey)
     
-    if (cached) {
-      return res.json(cached)
+    // Tentar cache (com timeout curto)
+    try {
+      const cached = await Promise.race([
+        cache.get(cacheKey),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Cache timeout')), 1000))
+      ])
+      if (cached) {
+        return res.json(cached)
+      }
+    } catch (cacheError) {
+      // Ignorar erro de cache, continuar com query
+      console.warn('Cache não disponível, usando query direta')
     }
 
     let query = 'SELECT * FROM banners WHERE status = 1'
@@ -23,12 +32,16 @@ export const getBanners = async (req, res) => {
       params.push(type)
     }
 
-    query += ' ORDER BY created_at DESC'
+    query += ' ORDER BY created_at DESC LIMIT 50' // Limitar resultados
 
     const [banners] = await pool.execute(query, params)
 
     const response = { banners }
-    await cache.set(cacheKey, response, 3600) // 1 hora
+    
+    // Tentar salvar no cache (sem bloquear)
+    cache.set(cacheKey, response, 3600).catch(() => {
+      // Ignorar erro de cache
+    })
 
     res.json(response)
   } catch (error) {
@@ -36,6 +49,7 @@ export const getBanners = async (req, res) => {
     res.status(500).json({
       error: 'Erro ao buscar banners',
       status: false,
+      message: error.message,
     })
   }
 }
@@ -174,7 +188,7 @@ export const createBanner = async (req, res) => {
     try {
       [result] = await pool.execute(
         `INSERT INTO banners (link, image, type, description, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id`,
+         VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           link || null,
           imageValue,
@@ -199,7 +213,7 @@ export const createBanner = async (req, res) => {
     }
     
     // Obter ID do banner inserido
-    const bannerId = result.insertId || result[0]?.id || (result.length > 0 ? result[0].id : null)
+    const bannerId = result.insertId
     
     // Verificar se foi salvo corretamente
     const [savedBanner] = await pool.execute(
@@ -248,7 +262,7 @@ export const createBanner = async (req, res) => {
 
     const [newBanner] = await pool.execute(
       'SELECT * FROM banners WHERE id = ?',
-      [bannerId]
+      [result.insertId]
     )
 
     res.status(201).json({

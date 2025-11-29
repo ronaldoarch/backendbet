@@ -123,11 +123,11 @@ export const register = async (req, res) => {
     
     const [result] = await pool.execute(
       `INSERT INTO users (name, email, phone, password, affiliate_code, inviter_code, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id`,
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [name, email, phone || '', hashedPassword, affiliateCode, inviterCode]
     )
 
-    const userId = result.insertId || result[0]?.id || (result.length > 0 ? result[0].id : null)
+    const userId = result.insertId
 
     // Criar carteira
     await pool.execute(

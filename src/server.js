@@ -103,10 +103,13 @@ app.use((req, res) => {
   })
 })
 
-// Inicializar Redis
-getRedisClient().catch(() => {
-  console.warn('Redis não disponível, usando cache em memória')
-})
+// Inicializar Redis (sem bloquear startup)
+// No Vercel, Redis pode não estar disponível, então não bloqueamos
+if (process.env.VERCEL !== '1') {
+  getRedisClient().catch(() => {
+    console.warn('Redis não disponível, usando cache em memória')
+  })
+}
 
 // Iniciar servidor (apenas se não estiver no Vercel)
 // No Vercel, o servidor é gerenciado automaticamente

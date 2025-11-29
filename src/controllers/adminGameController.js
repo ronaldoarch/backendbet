@@ -117,7 +117,7 @@ export const createGame = async (req, res) => {
       `INSERT INTO games (
         provider_id, game_id, game_name, game_code, cover, views,
         is_featured, show_home, original, status, distribution, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'play_fiver', NOW(), NOW()) RETURNING id`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'play_fiver', NOW(), NOW())`,
       [
         provider_id,
         game_id,
@@ -132,7 +132,7 @@ export const createGame = async (req, res) => {
       ]
     )
 
-    const gameId = result.insertId || result[0]?.id || (result.length > 0 ? result[0].id : null)
+    const gameId = result.insertId
 
     // Adicionar categorias
     if (categories && Array.isArray(categories) && categories.length > 0) {

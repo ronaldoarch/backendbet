@@ -151,11 +151,10 @@ export const savePlayfiverKeys = async (req, res) => {
       const [result] = await pool.execute(
         `INSERT INTO games_keys (
           playfiver_code, playfiver_token, playfiver_secret, callback_url, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, NOW(), NOW()) RETURNING id`,
+        ) VALUES (?, ?, ?, ?, NOW(), NOW())`,
         [playfiver_code || null, playfiver_token.trim(), playfiver_secret.trim(), callback_url || null]
       )
-      const insertId = result.insertId || result[0]?.id || (result.length > 0 ? result[0].id : null)
-      console.log('[PlayFiver Keys] Novo registro criado. ID:', insertId)
+      console.log('[PlayFiver Keys] Novo registro criado. ID:', result.insertId)
     }
 
     // Verificar se foi salvo corretamente

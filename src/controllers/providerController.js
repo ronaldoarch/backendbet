@@ -88,7 +88,7 @@ export const createProvider = async (req, res) => {
     // Inserir provedor
     const [result] = await pool.execute(
       `INSERT INTO providers (code, name, cover, status, distribution, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, NOW(), NOW()) RETURNING id`,
+       VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         code,
         name,
@@ -101,10 +101,9 @@ export const createProvider = async (req, res) => {
     // Invalidar cache
     await cache.clear('api.providers*')
 
-    const providerId = result.insertId || result[0]?.id || (result.length > 0 ? result[0].id : null)
     const [newProvider] = await pool.execute(
       'SELECT * FROM providers WHERE id = ?',
-      [providerId]
+      [result.insertId]
     )
 
     res.status(201).json({
