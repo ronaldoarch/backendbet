@@ -102,6 +102,16 @@ export const createDeposit = async (req, res) => {
         })
       }
       
+      // Erro 500 do servidor Arkama (problema interno deles)
+      if (arkamaResponse.status === 500) {
+        return res.status(503).json({
+          error: 'Serviço temporariamente indisponível',
+          message: 'O gateway de pagamento está temporariamente indisponível. Por favor, tente novamente em alguns instantes.',
+          details: 'Erro interno do servidor do gateway de pagamento',
+          status: false,
+        })
+      }
+      
       return res.status(arkamaResponse.status || 500).json({
         error: 'Erro ao criar pagamento',
         message: arkamaResponse.error || 'Erro desconhecido',
