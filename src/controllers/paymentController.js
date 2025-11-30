@@ -187,18 +187,40 @@ export const createDeposit = async (req, res) => {
         if (realError && (realError.toLowerCase().includes('pix') || realError.toLowerCase().includes('payment'))) {
           // Se o contexto mostra exception vazio, pode ser problema de configuração
           const hasEmptyException = arkamaResponse.error?.includes('"exception":{}')
+          const errorContext = arkamaResponse.error?.match(/Context:\s*({[^}]+})/)
+          
+          // Mensagem mais específica baseada no erro
+          let userMessage = 'Não foi possível processar o pagamento PIX. Verifique os dados e tente novamente.'
+          let suggestion = 'Verifique os dados enviados e tente novamente.'
+          
+          if (hasEmptyException) {
+            userMessage = 'Não foi possível processar o pagamento PIX. O erro pode estar relacionado à configuração da conta Arkama.'
+            suggestion = 'Verifique: 1) Se o PIX está habilitado na sua conta Arkama, 2) Se as credenciais estão corretas, 3) Se o IP está permitido, 4) Entre em contato com o suporte da Arkama se o problema persistir.'
+          } else if (errorContext) {
+            try {
+              const context = JSON.parse(errorContext[1])
+              if (context.userId && !context.exception || Object.keys(context.exception || {}).length === 0) {
+                userMessage = 'Erro ao processar pagamento PIX. A conta Arkama pode não estar configurada corretamente para PIX.'
+                suggestion = 'Entre em contato com o suporte da Arkama para verificar se o PIX está habilitado na sua conta.'
+              }
+            } catch (e) {
+              // Ignorar erro de parsing
+            }
+          }
           
           return res.status(400).json({
             error: 'Erro ao processar pagamento PIX',
-            message: hasEmptyException 
-              ? 'Não foi possível processar o pagamento PIX. Verifique se a conta Arkama está configurada corretamente para PIX ou entre em contato com o suporte.'
-              : (realError || 'Não foi possível processar o pagamento PIX. Verifique os dados e tente novamente.'),
+            message: userMessage,
             details: {
-              originalError: arkamaResponse.error,
+              originalError: arkamaResponse.error?.substring(0, 500), // Limitar tamanho
               extractedError: realError,
-              suggestion: hasEmptyException 
-                ? 'O erro pode estar relacionado à configuração da conta Arkama. Verifique se o PIX está habilitado na sua conta.'
-                : 'Verifique os dados enviados e tente novamente.',
+              suggestion: suggestion,
+              troubleshooting: [
+                'Verifique se o PIX está habilitado na sua conta Arkama',
+                'Confirme se as credenciais (token) estão corretas',
+                'Verifique se o IP do servidor está permitido na Arkama',
+                'Entre em contato com o suporte da Arkama se o problema persistir',
+              ],
             },
             status: false,
           })
