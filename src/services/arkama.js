@@ -184,10 +184,8 @@ export const createOrder = async (data) => {
       throw new Error('URL de retorno é obrigatória')
     }
 
-    // Adicionar token no body se necessário (algumas APIs esperam assim)
-    if (apiToken) {
-      requestBody.token = apiToken
-    }
+    // Token já está sendo enviado no header Authorization: Bearer {token}
+    // Não enviar token no body para evitar conflitos
 
     console.log('[Arkama] Enviando requisição:', {
       ...requestBody,
