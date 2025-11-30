@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "add-balance": "node src/database/add_balance.js",
     "migrate": "node src/database/migrate.js",
     "fix-banner-column": "node src/database/fix_banner_image_column.js",
     "diagnose-banner": "node src/database/diagnose_banner_column.js",
