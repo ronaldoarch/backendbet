@@ -13,7 +13,7 @@ export const getCartwavehubKeys = async (req, res) => {
     const [settings] = await pool.execute(
       `SELECT setting_key, setting_value 
        FROM app_settings 
-       WHERE setting_key IN ('cartwavehub_api_secret', 'cartwavehub_api_public', 'cartwavehub_base_url')`
+       WHERE setting_key IN ('cartwavehub_api_secret', 'cartwavehub_api_public', 'cartwavehub_base_url', 'cartwavehub_ativo')`
     )
 
     console.log('[CartwavehubKeys] Settings encontrados no banco:', settings.length)
@@ -25,6 +25,7 @@ export const getCartwavehubKeys = async (req, res) => {
       cartwavehub_api_secret: '',
       cartwavehub_api_public: '',
       cartwavehub_base_url: 'https://api.cartwavehub.com.br',
+      cartwavehub_ativo: false,
     }
 
     settings.forEach(setting => {
@@ -34,6 +35,8 @@ export const getCartwavehubKeys = async (req, res) => {
         config.cartwavehub_api_public = setting.setting_value || ''
       } else if (setting.setting_key === 'cartwavehub_base_url') {
         config.cartwavehub_base_url = setting.setting_value || 'https://api.cartwavehub.com.br'
+      } else if (setting.setting_key === 'cartwavehub_ativo') {
+        config.cartwavehub_ativo = setting.setting_value === 'true'
       }
     })
 
@@ -117,6 +120,7 @@ export const saveCartwavehubKeys = async (req, res) => {
       { key: 'cartwavehub_api_secret', value: cartwavehub_api_secret.trim() },
       { key: 'cartwavehub_api_public', value: cartwavehub_api_public?.trim() || '' },
       { key: 'cartwavehub_base_url', value: baseUrl },
+      { key: 'cartwavehub_ativo', value: cartwavehub_ativo ? 'true' : 'false' },
     ]
 
     for (const cred of credentials) {
