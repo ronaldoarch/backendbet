@@ -32,7 +32,13 @@ export const createDeposit = async (req, res) => {
       gateway: gateway || 'NÃO ENVIADO',
       body_completo: req.body,
     })
-    console.log('[PaymentController] Gateway que será usado:', gateway || 'cartwavehub (padrão)')
+    
+    // FORÇAR cartwavehub se gateway não for especificado ou for undefined/null
+    const finalGateway = (gateway && typeof gateway === 'string' && gateway.trim() !== '') 
+      ? gateway.trim().toLowerCase() 
+      : 'cartwavehub'
+    
+    console.log('[PaymentController] Gateway final após validação:', finalGateway)
     console.log('[PaymentController] ==========================================')
 
     console.log('[PaymentController] Dados recebidos:', {
@@ -40,6 +46,7 @@ export const createDeposit = async (req, res) => {
       amountType: typeof amount,
       description,
       gateway,
+      finalGateway,
     })
 
     // Validações
