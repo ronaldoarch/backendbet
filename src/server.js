@@ -100,14 +100,25 @@ const limiter = rateLimit({
 })
 
 const authLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minuto
-  max: 5, // 5 tentativas por minuto
-  message: 'Muitas tentativas de login, tente novamente mais tarde.',
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10, // 10 tentativas a cada 15 minutos
+  message: {
+    error: 'Muitas tentativas de login',
+    message: 'Você excedeu o limite de tentativas. Tente novamente em 15 minutos.',
+    status: false,
+  },
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.method === 'OPTIONS', // Pular rate limit para OPTIONS
   validate: {
     trustProxy: false,
+  },
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Muitas tentativas de login',
+      message: 'Você excedeu o limite de tentativas. Tente novamente em 15 minutos.',
+      status: false,
+    })
   },
 })
 

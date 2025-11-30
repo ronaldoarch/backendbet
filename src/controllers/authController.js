@@ -10,21 +10,41 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body
 
+    console.log('[AuthController] Tentativa de login:', {
+      email: email ? email.substring(0, 10) + '...' : 'não fornecido',
+      hasPassword: !!password,
+    })
+
+    // Validação básica
     if (!email || !password) {
+      console.log('[AuthController] ❌ Email ou senha não fornecidos')
       return res.status(400).json({
-        error: 'Check credentials',
+        error: 'Email e senha são obrigatórios',
+        message: 'Por favor, preencha todos os campos',
+        status: false,
+      })
+    }
+
+    // Validar formato do email
+    if (!validator.isEmail(email)) {
+      console.log('[AuthController] ❌ Email inválido:', email)
+      return res.status(400).json({
+        error: 'Email inválido',
+        message: 'Por favor, insira um email válido',
         status: false,
       })
     }
 
     const [users] = await pool.execute(
       'SELECT id, name, email, phone, password, banned FROM users WHERE email = ?',
-      [email]
+      [email.toLowerCase().trim()]
     )
 
     if (!users || users.length === 0) {
+      console.log('[AuthController] ❌ Usuário não encontrado:', email)
       return res.status(400).json({
-        error: 'Check credentials',
+        error: 'Credenciais inválidas',
+        message: 'Email ou senha incorretos',
         status: false,
       })
     }
@@ -32,8 +52,20 @@ export const login = async (req, res) => {
     const user = users[0]
 
     if (user.banned) {
+      console.log('[AuthController] ❌ Usuário banido:', email)
       return res.status(403).json({
         error: 'Usuário banido',
+        message: 'Sua conta foi suspensa. Entre em contato com o suporte.',
+        status: false,
+      })
+    }
+
+    // Verificar se a senha existe (usuários antigos podem não ter senha)
+    if (!user.password) {
+      console.log('[AuthController] ❌ Usuário sem senha cadastrada:', email)
+      return res.status(400).json({
+        error: 'Senha não cadastrada',
+        message: 'Por favor, redefina sua senha',
         status: false,
       })
     }
@@ -41,11 +73,15 @@ export const login = async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password)
 
     if (!validPassword) {
+      console.log('[AuthController] ❌ Senha incorreta para:', email)
       return res.status(400).json({
-        error: 'Check credentials',
+        error: 'Credenciais inválidas',
+        message: 'Email ou senha incorretos',
         status: false,
       })
     }
+
+    console.log('[AuthController] ✅ Login bem-sucedido para:', email)
 
     const token = jwt.sign(
       { userId: user.id, email: user.email },
