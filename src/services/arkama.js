@@ -113,7 +113,7 @@ export const createOrder = async (data) => {
     // Documentação: https://arkama.readme.io/reference/criar-compra
     const requestBody = {
       // Campos obrigatórios
-      value: amountValue.toFixed(2), // Obrigatório (não enviar junto com total_value)
+      value: parseFloat(amountValue.toFixed(2)), // Número, não string (obrigatório)
       paymentMethod: 'pix', // Obrigatório: 'credit_card' ou 'pix'
       
       // Customer (obrigatório)
@@ -128,7 +128,7 @@ export const createOrder = async (data) => {
       items: [
         {
           title: data.description || 'Depósito na plataforma',
-          unitPrice: amountValue.toFixed(2),
+          unitPrice: parseFloat(amountValue.toFixed(2)), // Número, não string
           quantity: 1,
           isDigital: true, // Produto digital
         }
