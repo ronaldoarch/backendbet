@@ -109,35 +109,50 @@ export const createOrder = async (data) => {
     // - ip (IP do cliente)
     // - shipping.address (endereço de entrega)
     // - customer (objeto com name e email)
+    // Montar body conforme documentação da Arkama
+    // Documentação: https://arkama.readme.io/reference/criar-compra
     const requestBody = {
-      value: amountValue.toFixed(2),
-      paymentMethod: 'pix', // camelCase (não payment_method)
+      // Campos obrigatórios
+      value: amountValue.toFixed(2), // Obrigatório (não enviar junto com total_value)
+      paymentMethod: 'pix', // Obrigatório: 'credit_card' ou 'pix'
+      
+      // Customer (obrigatório)
       customer: {
         name: data.user_name || data.user_email,
         email: data.user_email,
         // Adicionar telefone se disponível
         ...(data.user_phone && { phone: data.user_phone }),
       },
+      
+      // Items (obrigatório)
       items: [
         {
-          title: data.description || 'Depósito na plataforma', // title (não name)
-          unitPrice: amountValue.toFixed(2), // unitPrice (não value)
+          title: data.description || 'Depósito na plataforma',
+          unitPrice: amountValue.toFixed(2),
           quantity: 1,
-          isDigital: true, // Produto digital (obrigatório)
+          isDigital: true, // Produto digital
         }
       ],
+      
+      // Shipping (obrigatório)
       shipping: {
         address: Array.isArray(data.shipping_address) 
           ? data.shipping_address 
-          : [data.shipping_address || 'Endereço não informado'], // Endereço deve ser array
+          : [data.shipping_address || 'Endereço não informado'],
       },
-      ip: data.ip || '0.0.0.0', // IP do cliente (obrigatório)
-      user_email: data.user_email,
-      user_name: data.user_name || data.user_email,
-      description: data.description || `Depósito de R$ ${amountValue.toFixed(2)}`,
+      
+      // IP do cliente (obrigatório)
+      ip: data.ip || '0.0.0.0',
+      
+      // URLs de callback e retorno (obrigatórias)
       callback_url: data.callback_url,
       return_url: data.return_url,
     }
+    
+    // NÃO enviar campos extras que não estão na documentação:
+    // - user_email (já está em customer.email)
+    // - user_name (já está em customer.name)
+    // - description (já está em items[0].title)
     
     // Remover campos undefined/null para evitar problemas
     Object.keys(requestBody).forEach(key => {
