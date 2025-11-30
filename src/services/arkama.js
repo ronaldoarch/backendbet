@@ -124,7 +124,7 @@ export const createOrder = async (data) => {
         }
       ],
       shipping: {
-        address: data.shipping_address || 'Endereço não informado', // Endereço obrigatório
+        address: [data.shipping_address || 'Endereço não informado'], // Endereço deve ser array
       },
       ip: data.ip || '0.0.0.0', // IP do cliente (obrigatório)
       user_email: data.user_email,
