@@ -25,6 +25,16 @@ export const createDeposit = async (req, res) => {
     const userId = req.user.id
     const { amount, description, gateway = 'cartwavehub' } = req.body // Default para cartwavehub
 
+    console.log('[PaymentController] ==========================================')
+    console.log('[PaymentController] Dados recebidos do frontend:', {
+      amount,
+      description,
+      gateway: gateway || 'NÃO ENVIADO',
+      body_completo: req.body,
+    })
+    console.log('[PaymentController] Gateway que será usado:', gateway || 'cartwavehub (padrão)')
+    console.log('[PaymentController] ==========================================')
+
     console.log('[PaymentController] Dados recebidos:', {
       amount,
       amountType: typeof amount,
@@ -84,11 +94,17 @@ export const createDeposit = async (req, res) => {
                     '0.0.0.0'
 
     // Escolher gateway (cartwavehub ou arkama)
-    const selectedGateway = gateway || 'cartwavehub'
+    const selectedGateway = (gateway || 'cartwavehub').toLowerCase().trim()
+    
+    console.log('[PaymentController] ==========================================')
+    console.log('[PaymentController] Gateway selecionado:', selectedGateway)
+    console.log('[PaymentController] Gateway original recebido:', gateway)
+    console.log('[PaymentController] ==========================================')
     
     let paymentResponse = null
     
     if (selectedGateway === 'cartwavehub') {
+      console.log('[PaymentController] ✅ Usando CARTWAVEHUB como gateway')
       // Criar transação PIX no Cartwavehub
       console.log('[PaymentController] Chamando Cartwavehub API...')
       console.log('[PaymentController] Dados enviados:', {
@@ -110,6 +126,7 @@ export const createDeposit = async (req, res) => {
       })
     } else {
       // Criar compra na Arkama (fallback)
+      console.log('[PaymentController] ⚠️ Usando ARKAMA como gateway (fallback)')
       console.log('[PaymentController] Chamando Arkama API...')
       console.log('[PaymentController] Dados enviados:', {
         amount: finalAmount.toFixed(2),
