@@ -569,9 +569,10 @@ export const getFavorites = async (req, res) => {
     const userId = req.user.id
 
     const [favorites] = await pool.execute(
-      `SELECT g.*, gf.created_at as favorited_at
+      `SELECT g.*, p.name as provider_name, p.code as provider_code, gf.created_at as favorited_at
        FROM game_favorites gf
        INNER JOIN games g ON gf.game_id = g.id
+       LEFT JOIN providers p ON g.provider_id = p.id
        WHERE gf.user_id = ? AND g.status = 1
        ORDER BY gf.created_at DESC`,
       [userId]
@@ -582,7 +583,7 @@ export const getFavorites = async (req, res) => {
       game_code: game.game_code,
       game_name: game.game_name,
       cover: getImageUrl(game.cover),
-      provider: game.provider_id,
+      provider: game.provider_name || 'Desconhecido',
       category: null,
       type: 'slot',
       distribution: game.distribution || 'play_fiver',
