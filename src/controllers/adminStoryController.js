@@ -37,6 +37,17 @@ export const createStory = async (req, res) => {
       status,
     } = req.body
 
+    console.log('[AdminStoryController] Criando story:', {
+      title,
+      hasImage: !!image,
+      imageLength: image ? image.length : 0,
+      link,
+      color,
+      icon,
+      order_index,
+      status,
+    })
+
     // Validar dados obrigatórios
     if (!title) {
       return res.status(400).json({
@@ -45,12 +56,21 @@ export const createStory = async (req, res) => {
       })
     }
 
-    if (!image) {
+    // Imagem ou ícone deve estar presente
+    if (!image && !icon) {
       return res.status(400).json({
-        error: 'Imagem é obrigatória',
+        error: 'Imagem ou ícone é obrigatório',
         status: false,
       })
     }
+
+    // Processar valores
+    const imageValue = image || null
+    const linkValue = link || null
+    const colorValue = color || null
+    const iconValue = icon || null
+    const orderIndexValue = order_index !== undefined ? (parseInt(order_index) || 0) : 0
+    const statusValue = status !== false ? 1 : 0
 
     // Inserir story
     const [result] = await pool.execute(
@@ -58,12 +78,12 @@ export const createStory = async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         title,
-        image,
-        link || null,
-        color || null,
-        icon || null,
-        order_index || 0,
-        status !== false ? 1 : 0,
+        imageValue,
+        linkValue,
+        colorValue,
+        iconValue,
+        orderIndexValue,
+        statusValue,
       ]
     )
 
@@ -115,6 +135,26 @@ export const updateStory = async (req, res) => {
       status,
     } = req.body
 
+    console.log('[AdminStoryController] Atualizando story:', {
+      id,
+      title,
+      hasImage: !!image,
+      imageLength: image ? image.length : 0,
+      link,
+      color,
+      icon,
+      order_index,
+      status,
+    })
+
+    // Validar dados obrigatórios
+    if (!title) {
+      return res.status(400).json({
+        error: 'Título é obrigatório',
+        status: false,
+      })
+    }
+
     // Verificar se story existe
     const [existing] = await pool.execute('SELECT id FROM stories WHERE id = ?', [id])
 
@@ -124,6 +164,23 @@ export const updateStory = async (req, res) => {
         status: false,
       })
     }
+
+    // Processar valores
+    const imageValue = image !== undefined ? (image || null) : null
+    const linkValue = link !== undefined ? (link || null) : null
+    const colorValue = color !== undefined ? (color || null) : null
+    const iconValue = icon !== undefined ? (icon || null) : null
+    const orderIndexValue = order_index !== undefined ? (parseInt(order_index) || 0) : 0
+    const statusValue = status !== false ? 1 : 0
+
+    console.log('[AdminStoryController] Valores processados:', {
+      imageValue: imageValue ? `${imageValue.substring(0, 50)}...` : null,
+      linkValue,
+      colorValue,
+      iconValue,
+      orderIndexValue,
+      statusValue,
+    })
 
     // Atualizar story
     await pool.execute(
@@ -139,15 +196,17 @@ export const updateStory = async (req, res) => {
       WHERE id = ?`,
       [
         title,
-        image,
-        link || null,
-        color || null,
-        icon || null,
-        order_index !== undefined ? order_index : 0,
-        status !== false ? 1 : 0,
+        imageValue,
+        linkValue,
+        colorValue,
+        iconValue,
+        orderIndexValue,
+        statusValue,
         id,
       ]
     )
+
+    console.log('[AdminStoryController] Story atualizado com sucesso!')
 
     // Invalidar cache
     try {
@@ -158,12 +217,16 @@ export const updateStory = async (req, res) => {
 
     res.json({
       message: 'Story atualizado com sucesso',
+      status: true,
     })
   } catch (error) {
-    console.error('Erro ao atualizar story:', error)
+    console.error('❌ Erro ao atualizar story:', error)
+    console.error('Stack:', error.stack)
     res.status(500).json({
-      error: 'Erro ao atualizar story',
+      error: error.message || 'Erro ao atualizar story',
+      message: error.message || 'Erro desconhecido ao atualizar story',
       status: false,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     })
   }
 }
