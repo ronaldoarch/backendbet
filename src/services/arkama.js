@@ -104,9 +104,10 @@ export const createOrder = async (data) => {
     const amountValue = parseFloat(data.amount)
     
     // A API Arkama exige:
-    // - paymentMethod (camelCase, não snake_case)
-    // - items (array de itens)
+    // - paymentMethod (camelCase)
+    // - items (array com title, unitPrice, quantity, isDigital)
     // - ip (IP do cliente)
+    // - shipping.address (endereço de entrega)
     const requestBody = {
       value: amountValue.toFixed(2),
       paymentMethod: 'pix', // camelCase (não payment_method)
@@ -116,11 +117,15 @@ export const createOrder = async (data) => {
       },
       items: [
         {
-          name: data.description || 'Depósito na plataforma',
+          title: data.description || 'Depósito na plataforma', // title (não name)
+          unitPrice: amountValue.toFixed(2), // unitPrice (não value)
           quantity: 1,
-          value: amountValue.toFixed(2),
+          isDigital: true, // Produto digital (obrigatório)
         }
       ],
+      shipping: {
+        address: data.shipping_address || 'Endereço não informado', // Endereço obrigatório
+      },
       ip: data.ip || '0.0.0.0', // IP do cliente (obrigatório)
       user_email: data.user_email,
       user_name: data.user_name || data.user_email,
