@@ -18,13 +18,8 @@ export const getSettings = async (req, res) => {
       // Ignorar erro de cache, continuar com query
     }
 
-    // Query com timeout
-    const [settings] = await Promise.race([
-      pool.execute('SELECT * FROM settings LIMIT 1'),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
-    ])
-
-    let setting = settings && settings.length > 0 ? settings[0] : {
+    // Query com timeout e tratamento de erro
+    let setting = {
       software_name: 'BetGenius',
       software_description: 'Plataforma de cassino online',
       software_favicon: null,
@@ -32,14 +27,37 @@ export const getSettings = async (req, res) => {
       software_logo_black: null,
     }
 
-    // Buscar customização
-    const [customizations] = await pool.execute(
-      'SELECT * FROM custom_layouts LIMIT 1'
-    )
+    try {
+      const [settings] = await Promise.race([
+        pool.execute('SELECT * FROM settings LIMIT 1'),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
+      ])
+      
+      if (settings && settings.length > 0) {
+        setting = settings[0]
+      }
+    } catch (dbError) {
+      console.warn('[SettingsController] Erro ao buscar settings (usando padrão):', dbError.message)
+      // Continuar com valores padrão
+    }
 
-    const custom = customizations && customizations.length > 0 ? customizations[0] : {
+    // Buscar customização com tratamento de erro
+    let custom = {
       primary_color: '#01b7fc',
       secondary_color: '#0a0e27',
+    }
+
+    try {
+      const [customizations] = await pool.execute(
+        'SELECT * FROM custom_layouts LIMIT 1'
+      )
+      
+      if (customizations && customizations.length > 0) {
+        custom = customizations[0]
+      }
+    } catch (dbError) {
+      console.warn('[SettingsController] Erro ao buscar custom_layouts (usando padrão):', dbError.message)
+      // Continuar com valores padrão
     }
 
     const response = {

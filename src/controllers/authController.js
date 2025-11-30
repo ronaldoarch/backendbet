@@ -59,9 +59,14 @@ export const login = async (req, res) => {
       expires_in: JWT_EXPIRATION,
     })
   } catch (error) {
-    console.error('Erro no login:', error)
+    console.error('[AuthController] Erro no login:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+    })
     res.status(500).json({
       error: 'Erro interno do servidor',
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined,
       status: false,
     })
   }
