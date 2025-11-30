@@ -82,6 +82,18 @@ export const createDeposit = async (req, res) => {
         details: arkamaResponse.details,
         status: arkamaResponse.status,
       })
+      
+      // Retornar erros de validação (422) com mais detalhes
+      if (arkamaResponse.status === 422 && arkamaResponse.details?.errors) {
+        return res.status(422).json({
+          error: 'Erro de validação',
+          message: arkamaResponse.error || 'Erro ao criar pagamento',
+          errors: arkamaResponse.details.errors,
+          details: arkamaResponse.details,
+          status: false,
+        })
+      }
+      
       return res.status(arkamaResponse.status || 500).json({
         error: 'Erro ao criar pagamento',
         message: arkamaResponse.error || 'Erro desconhecido',
