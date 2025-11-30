@@ -141,41 +141,79 @@ export const createDeposit = async (req, res) => {
 
     // Extrair dados do PIX da resposta da Arkama
     // A Arkama pode retornar: qr_code, pix_code, qr_code_base64, pix_copia_cola, etc.
-    let qrCode = orderData.qr_code || 
-                 orderData.qr_code_base64 || 
-                 orderData.qrcode || 
-                 orderData.qrCode ||
-                 orderData.pix?.qr_code ||
-                 orderData.pix?.qr_code_base64 ||
-                 null
-
-    let pixCode = orderData.pix_code || 
-                  orderData.pix_copia_cola || 
-                  orderData.pixCode ||
+    // Priorizar sempre o PIX copia e cola, pois é mais confiável
+    console.log('[PaymentController] Resposta completa da Arkama:', JSON.stringify(orderData, null, 2))
+    
+    // Buscar PIX copia e cola em todos os campos possíveis (prioridade)
+    let pixCode = orderData.pix_copia_cola || 
                   orderData.pix?.pix_copia_cola ||
-                  orderData.pix?.payload ||
+                  orderData.pix_copia_cola_pix ||
+                  orderData.pixCode ||
+                  orderData.pix_code ||
                   orderData.pix?.pix_code ||
+                  orderData.pix?.payload ||
+                  orderData.payload ||
+                  orderData.pix_payload ||
+                  orderData.pix?.emvqrcps ||
+                  orderData.emvqrcps ||
+                  orderData.qr_code_string ||
+                  orderData.pix?.qr_code_string ||
                   null
 
-    // Se não houver QR code mas houver PIX code, usar o PIX code
-    // Se não houver nenhum dos dois, tentar gerar PIX code a partir dos dados disponíveis
-    if (!qrCode && !pixCode) {
-      // Tentar gerar PIX copia e cola a partir dos dados disponíveis
-      // A Arkama pode retornar dados em diferentes formatos
-      if (orderData.pix) {
-        pixCode = orderData.pix.pix_copia_cola || 
-                  orderData.pix.payload || 
-                  orderData.pix.pix_code ||
+    // Buscar QR code (imagem) em todos os campos possíveis
+    let qrCode = orderData.qr_code_base64 || 
+                 orderData.pix?.qr_code_base64 ||
+                 orderData.qr_code ||
+                 orderData.pix?.qr_code ||
+                 orderData.qrcode || 
+                 orderData.qrCode ||
+                 orderData.pix?.qrcode ||
+                 null
+
+    // Se não encontrou PIX code, tentar extrair de outros campos
+    if (!pixCode) {
+      // Tentar buscar em campos aninhados
+      if (orderData.payment) {
+        pixCode = orderData.payment.pix_copia_cola ||
+                  orderData.payment.pix_code ||
+                  orderData.payment.payload ||
                   null
       }
       
-      // Se ainda não tiver, tentar outros campos
-      if (!pixCode) {
-        pixCode = orderData.pix_copia_cola || 
-                  orderData.payload || 
-                  orderData.pix_code ||
+      // Tentar buscar em dados de pagamento
+      if (!pixCode && orderData.payment_data) {
+        pixCode = orderData.payment_data.pix_copia_cola ||
+                  orderData.payment_data.pix_code ||
+                  orderData.payment_data.payload ||
                   null
       }
+      
+      // Se ainda não encontrou, tentar extrair de qualquer campo que contenha "pix" ou "qr"
+      if (!pixCode) {
+        for (const key in orderData) {
+          if (typeof orderData[key] === 'string' && 
+              (key.toLowerCase().includes('pix') || key.toLowerCase().includes('qr')) &&
+              orderData[key].length > 20 && // PIX codes são longos
+              !orderData[key].startsWith('data:image')) { // Não é base64 de imagem
+            pixCode = orderData[key]
+            console.log(`[PaymentController] PIX code encontrado no campo: ${key}`)
+            break
+          }
+        }
+      }
+    }
+
+    // Log do que foi encontrado
+    if (pixCode) {
+      console.log('[PaymentController] ✅ PIX copia e cola encontrado:', pixCode.substring(0, 50) + '...')
+    } else {
+      console.warn('[PaymentController] ⚠️ PIX copia e cola NÃO encontrado na resposta')
+    }
+    
+    if (qrCode) {
+      console.log('[PaymentController] ✅ QR code encontrado')
+    } else {
+      console.warn('[PaymentController] ⚠️ QR code NÃO encontrado na resposta')
     }
 
     // Se não houver QR code mas houver PIX code, informar que o QR code não está disponível
@@ -183,9 +221,16 @@ export const createDeposit = async (req, res) => {
     if (!qrCode && pixCode) {
       console.log('[PaymentController] QR code não disponível, mas PIX copia e cola está disponível')
     }
+    
+    // Se não houver nenhum dos dois, retornar erro
+    if (!qrCode && !pixCode) {
+      console.error('[PaymentController] ❌ ERRO: Nem QR code nem PIX copia e cola encontrados na resposta da Arkama')
+      console.error('[PaymentController] Resposta completa:', JSON.stringify(orderData, null, 2))
+    }
 
     // Retornar dados de pagamento
-    res.json({
+    // Sempre retornar PIX copia e cola se disponível, mesmo sem QR code
+    const response = {
       success: true,
       transaction_id: transactionId,
       payment_url: orderData.payment_url || orderData.url || orderData.link,
@@ -193,8 +238,21 @@ export const createDeposit = async (req, res) => {
       pix_code: pixCode,
       order_id: orderData.id || orderData.order_id,
       status: orderData.status,
-      message: qrCode ? 'Pagamento criado com sucesso.' : 'Pagamento criado. Use o código PIX copia e cola para pagar.',
-    })
+    }
+    
+    // Mensagem baseada no que está disponível
+    if (qrCode && pixCode) {
+      response.message = 'Pagamento criado com sucesso. Escaneie o QR code ou use o código PIX copia e cola.'
+    } else if (pixCode) {
+      response.message = 'Pagamento criado. Use o código PIX copia e cola para pagar.'
+    } else if (qrCode) {
+      response.message = 'Pagamento criado com sucesso. Escaneie o QR code para pagar.'
+    } else {
+      response.message = 'Pagamento criado, mas os dados de pagamento não estão disponíveis. Entre em contato com o suporte.'
+      console.error('[PaymentController] ⚠️ ATENÇÃO: Retornando resposta sem QR code nem PIX code')
+    }
+    
+    res.json(response)
   } catch (error) {
     console.error('[PaymentController] Erro ao criar depósito:', error)
     console.error('[PaymentController] Stack trace:', error.stack)
