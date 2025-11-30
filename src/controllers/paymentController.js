@@ -59,6 +59,13 @@ export const createDeposit = async (req, res) => {
                    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 
                    'https://qoo8wgogo4ow4gsg0k0wk4g4.agenciamidas.com'
 
+    // Obter IP do cliente
+    const clientIp = req.ip || 
+                    req.headers['x-forwarded-for']?.split(',')[0] || 
+                    req.headers['x-real-ip'] || 
+                    req.connection.remoteAddress || 
+                    '0.0.0.0'
+
     // Criar compra na Arkama
     console.log('[PaymentController] Chamando Arkama API...')
     const arkamaResponse = await arkamaService.createOrder({
@@ -68,6 +75,7 @@ export const createDeposit = async (req, res) => {
       description: description || `Depósito de R$ ${amount.toFixed(2)}`,
       callback_url: `${baseUrl}/api/payments/arkama-webhook`,
       return_url: `${baseUrl}/wallet?payment=success`,
+      ip: clientIp,
     })
 
     console.log('[PaymentController] Resposta da Arkama:', {

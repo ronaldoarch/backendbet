@@ -103,16 +103,25 @@ export const createOrder = async (data) => {
     // Converter amount para número e garantir formato correto
     const amountValue = parseFloat(data.amount)
     
-    // A API Arkama exige 'value' OU 'total_value', mas não ambos
-    // Se enviar 'value', não pode enviar 'total_value'
-    // A API também exige um objeto 'customer' com informações do cliente
+    // A API Arkama exige:
+    // - paymentMethod (camelCase, não snake_case)
+    // - items (array de itens)
+    // - ip (IP do cliente)
     const requestBody = {
-      value: amountValue.toFixed(2), // Campo obrigatório (não enviar total_value quando value está presente)
-      payment_method: 'pix',
+      value: amountValue.toFixed(2),
+      paymentMethod: 'pix', // camelCase (não payment_method)
       customer: {
         name: data.user_name || data.user_email,
         email: data.user_email,
       },
+      items: [
+        {
+          name: data.description || 'Depósito na plataforma',
+          quantity: 1,
+          value: amountValue.toFixed(2),
+        }
+      ],
+      ip: data.ip || '0.0.0.0', // IP do cliente (obrigatório)
       user_email: data.user_email,
       user_name: data.user_name || data.user_email,
       description: data.description || 'Depósito na plataforma',
