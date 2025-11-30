@@ -108,6 +108,7 @@ export const createOrder = async (data) => {
     // - items (array com title, unitPrice, quantity, isDigital)
     // - ip (IP do cliente)
     // - shipping.address (endereço de entrega)
+    // - customer (objeto com name e email)
     const requestBody = {
       value: amountValue.toFixed(2),
       paymentMethod: 'pix', // camelCase (não payment_method)
@@ -129,9 +130,23 @@ export const createOrder = async (data) => {
       ip: data.ip || '0.0.0.0', // IP do cliente (obrigatório)
       user_email: data.user_email,
       user_name: data.user_name || data.user_email,
-      description: data.description || 'Depósito na plataforma',
+      description: data.description || `Depósito de R$ ${amountValue.toFixed(2)}`,
       callback_url: data.callback_url,
       return_url: data.return_url,
+    }
+    
+    // Validar campos obrigatórios antes de enviar
+    if (!requestBody.value || parseFloat(requestBody.value) <= 0) {
+      throw new Error('Valor do pagamento inválido')
+    }
+    if (!requestBody.customer.email) {
+      throw new Error('Email do cliente é obrigatório')
+    }
+    if (!requestBody.callback_url) {
+      throw new Error('URL de callback é obrigatória')
+    }
+    if (!requestBody.return_url) {
+      throw new Error('URL de retorno é obrigatória')
     }
 
     // Adicionar token no body se necessário (algumas APIs esperam assim)

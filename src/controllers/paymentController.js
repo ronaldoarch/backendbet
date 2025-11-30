@@ -92,12 +92,40 @@ export const createDeposit = async (req, res) => {
         fullResponse: JSON.stringify(arkamaResponse, null, 2),
       })
       
+      // Tentar extrair o erro real que pode estar mascarado por problemas de log
+      let realError = arkamaResponse.error || ''
+      if (realError.includes('Error on pix payment')) {
+        // Extrair o erro real do contexto
+        const contextMatch = realError.match(/Context:\s*({[^}]+})/)
+        if (contextMatch) {
+          try {
+            const context = JSON.parse(contextMatch[1])
+            if (context.exception && Object.keys(context.exception).length > 0) {
+              realError = `Erro no pagamento PIX: ${JSON.stringify(context.exception)}`
+            } else {
+              realError = 'Erro ao processar pagamento PIX. Verifique os dados enviados.'
+            }
+          } catch (e) {
+            realError = 'Erro ao processar pagamento PIX'
+          }
+        } else {
+          realError = 'Erro ao processar pagamento PIX. Verifique os dados enviados.'
+        }
+      } else if (realError.includes('Permission denied')) {
+        // Se for erro de permissão de log, tentar extrair o erro real
+        if (realError.includes('Error on pix payment')) {
+          realError = 'Erro ao processar pagamento PIX. Verifique os dados enviados.'
+        } else {
+          realError = 'Erro interno do gateway de pagamento. Tente novamente.'
+        }
+      }
+      
       // Retornar erros de validação (422) com mais detalhes
       if (arkamaResponse.status === 422 && arkamaResponse.details?.errors) {
         const errorMessages = Object.values(arkamaResponse.details.errors).flat().join(', ')
         return res.status(422).json({
           error: 'Erro de validação',
-          message: errorMessages || arkamaResponse.error || 'Erro ao criar pagamento',
+          message: errorMessages || realError || 'Erro ao criar pagamento',
           errors: arkamaResponse.details.errors,
           details: arkamaResponse.details,
           status: false,
@@ -107,10 +135,22 @@ export const createDeposit = async (req, res) => {
       // Erro 500 do servidor Arkama (problema interno deles)
       if (arkamaResponse.status === 500) {
         console.error('[PaymentController] ⚠️ Erro 500 da Arkama - Gateway temporariamente indisponível')
+        console.error('[PaymentController] Erro real extraído:', realError)
+        
+        // Se o erro real for sobre pagamento PIX, pode ser problema nos dados
+        if (realError.includes('pix payment') || realError.includes('PIX')) {
+          return res.status(400).json({
+            error: 'Erro ao processar pagamento PIX',
+            message: 'Não foi possível processar o pagamento PIX. Verifique os dados e tente novamente.',
+            details: realError,
+            status: false,
+          })
+        }
+        
         return res.status(503).json({
           error: 'Serviço temporariamente indisponível',
           message: 'O gateway de pagamento está temporariamente indisponível. Por favor, tente novamente em alguns instantes.',
-          details: arkamaResponse.error || 'Erro interno do servidor do gateway de pagamento',
+          details: realError || 'Erro interno do servidor do gateway de pagamento',
           status: false,
         })
       }
