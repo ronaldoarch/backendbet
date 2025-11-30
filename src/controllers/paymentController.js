@@ -295,184 +295,65 @@ export const createDeposit = async (req, res) => {
 
     const transactionId = result.insertId
 
-    // Extrair dados do PIX da resposta da Arkama
-    // A Arkama pode retornar: qr_code, pix_code, qr_code_base64, pix_copia_cola, etc.
-    // Priorizar sempre o PIX copia e cola, pois é mais confiável
+    // Extrair dados do pagamento da resposta da Arkama
+    // Conforme solicitado pelo gateway: desativar geração de QR code e usar integração normal
+    // A Arkama retorna payment_url para integração normal (sem QR code)
     console.log('[PaymentController] Resposta completa da Arkama:', JSON.stringify(orderData, null, 2))
     
-    // Buscar PIX copia e cola em todos os campos possíveis (prioridade)
+    // Buscar payment_url (prioridade - integração normal)
+    let paymentUrl = orderData.payment_url || 
+                     orderData.url || 
+                     orderData.link ||
+                     orderData.payment?.url ||
+                     orderData.payment?.link ||
+                     null
+
+    // Buscar PIX copia e cola (opcional - apenas se disponível)
     let pixCode = orderData.pix_copia_cola || 
                   orderData.pix?.pix_copia_cola ||
-                  orderData.pix_copia_cola_pix ||
-                  orderData.pixCode ||
                   orderData.pix_code ||
                   orderData.pix?.pix_code ||
                   orderData.pix?.payload ||
                   orderData.payload ||
-                  orderData.pix_payload ||
-                  orderData.pix?.emvqrcps ||
-                  orderData.emvqrcps ||
-                  orderData.qr_code_string ||
-                  orderData.pix?.qr_code_string ||
                   null
-
-    // Buscar QR code (imagem) em todos os campos possíveis
-    let qrCode = orderData.qr_code_base64 || 
-                 orderData.pix?.qr_code_base64 ||
-                 orderData.qr_code ||
-                 orderData.pix?.qr_code ||
-                 orderData.qrcode || 
-                 orderData.qrCode ||
-                 orderData.pix?.qrcode ||
-                 null
-
-    // Se não encontrou PIX code, tentar extrair de outros campos
-    if (!pixCode) {
-      // Tentar buscar em campos aninhados
-      if (orderData.payment) {
-        pixCode = orderData.payment.pix_copia_cola ||
-                  orderData.payment.pix_code ||
-                  orderData.payment.payload ||
-                  null
-      }
-      
-      // Tentar buscar em dados de pagamento
-      if (!pixCode && orderData.payment_data) {
-        pixCode = orderData.payment_data.pix_copia_cola ||
-                  orderData.payment_data.pix_code ||
-                  orderData.payment_data.payload ||
-                  null
-      }
-      
-      // Se ainda não encontrou, tentar extrair de qualquer campo que contenha "pix" ou "qr"
-      if (!pixCode) {
-        for (const key in orderData) {
-          if (typeof orderData[key] === 'string' && 
-              (key.toLowerCase().includes('pix') || key.toLowerCase().includes('qr')) &&
-              orderData[key].length > 20 && // PIX codes são longos
-              !orderData[key].startsWith('data:image')) { // Não é base64 de imagem
-            pixCode = orderData[key]
-            console.log(`[PaymentController] PIX code encontrado no campo: ${key}`)
-            break
-          }
-        }
-      }
-    }
 
     // Log do que foi encontrado
+    if (paymentUrl) {
+      console.log('[PaymentController] ✅ Payment URL encontrado:', paymentUrl)
+    } else {
+      console.warn('[PaymentController] ⚠️ Payment URL NÃO encontrado na resposta')
+    }
+    
     if (pixCode) {
       console.log('[PaymentController] ✅ PIX copia e cola encontrado:', pixCode.substring(0, 50) + '...')
     } else {
-      console.warn('[PaymentController] ⚠️ PIX copia e cola NÃO encontrado na resposta')
+      console.log('[PaymentController] ℹ️ PIX copia e cola não disponível (normal para integração sem QR code)')
     }
     
-    if (qrCode) {
-      console.log('[PaymentController] ✅ QR code encontrado')
-    } else {
-      console.warn('[PaymentController] ⚠️ QR code NÃO encontrado na resposta')
-    }
-
-    // Se não houver QR code mas houver PIX code, informar que o QR code não está disponível
-    // mas o PIX copia e cola está disponível
-    if (!qrCode && pixCode) {
-      console.log('[PaymentController] QR code não disponível, mas PIX copia e cola está disponível')
-    }
-    
-    // Se não encontrou PIX code ainda, tentar buscar em todos os campos recursivamente
-    if (!pixCode) {
-      const searchInObject = (obj, depth = 0) => {
-        if (depth > 3) return null // Limitar profundidade
-        
-        for (const key in obj) {
-          if (obj[key] === null || obj[key] === undefined) continue
-          
-          // Se for string e parecer um PIX code
-          if (typeof obj[key] === 'string') {
-            const value = obj[key].trim()
-            // PIX codes geralmente começam com "000201" ou têm mais de 100 caracteres
-            if (value.length > 50 && 
-                (value.startsWith('000201') || 
-                 value.includes('BR.GOV.BCB.PIX') ||
-                 key.toLowerCase().includes('pix') ||
-                 key.toLowerCase().includes('copia') ||
-                 key.toLowerCase().includes('cola') ||
-                 key.toLowerCase().includes('payload'))) {
-              return value
-            }
-          }
-          
-          // Se for objeto, buscar recursivamente
-          if (typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
-            const found = searchInObject(obj[key], depth + 1)
-            if (found) return found
-          }
-          
-          // Se for array, buscar em cada item
-          if (Array.isArray(obj[key])) {
-            for (const item of obj[key]) {
-              if (typeof item === 'object') {
-                const found = searchInObject(item, depth + 1)
-                if (found) return found
-              }
-            }
-          }
-        }
-        return null
-      }
-      
-      pixCode = searchInObject(orderData)
-      if (pixCode) {
-        console.log('[PaymentController] ✅ PIX code encontrado via busca recursiva!')
-      }
-    }
-
-    // Se não houver nenhum dos dois, retornar erro
-    if (!qrCode && !pixCode) {
-      console.error('[PaymentController] ❌ ERRO: Nem QR code nem PIX copia e cola encontrados na resposta da Arkama')
+    // Se não houver payment_url, retornar erro
+    if (!paymentUrl) {
+      console.error('[PaymentController] ❌ ERRO: Payment URL não encontrado na resposta da Arkama')
       console.error('[PaymentController] Resposta completa:', JSON.stringify(orderData, null, 2))
-      
-      // Mesmo sem PIX code, retornar sucesso se houver payment_url
-      if (orderData.payment_url || orderData.url || orderData.link) {
-        return res.json({
-          success: true,
-          transaction_id: transactionId,
-          payment_url: orderData.payment_url || orderData.url || orderData.link,
-          qr_code: null,
-          pix_code: null,
-          order_id: orderData.id || orderData.order_id,
-          status: orderData.status,
-          message: 'Pagamento criado. Use o link de pagamento para concluir.',
-        })
-      }
       
       return res.status(500).json({
         error: 'Erro ao processar pagamento',
-        message: 'Não foi possível obter os dados de pagamento. Tente novamente.',
+        message: 'Não foi possível obter o link de pagamento. Tente novamente.',
         status: false,
       })
     }
 
-    // Retornar dados de pagamento
-    // Sempre retornar PIX copia e cola se disponível, mesmo sem QR code
+    // Retornar dados de pagamento (integração normal - sem QR code)
     const response = {
       success: true,
       transaction_id: transactionId,
-      payment_url: orderData.payment_url || orderData.url || orderData.link,
-      qr_code: qrCode,
-      pix_code: pixCode,
+      payment_url: paymentUrl,
+      pix_code: pixCode || null, // Opcional
+      qr_code: null, // Desativado conforme solicitado
       order_id: orderData.id || orderData.order_id,
       status: orderData.status,
-    }
-    
-    // Mensagem baseada no que está disponível
-    if (qrCode && pixCode) {
-      response.message = 'Pagamento criado com sucesso. Escaneie o QR code ou use o código PIX copia e cola.'
-    } else if (pixCode) {
-      response.message = 'Pagamento criado. Use o código PIX copia e cola para pagar.'
-    } else if (qrCode) {
-      response.message = 'Pagamento criado com sucesso. Escaneie o QR code para pagar.'
-    } else {
-      response.message = 'Pagamento criado. Use o link de pagamento para concluir.'
+      message: pixCode 
+        ? 'Pagamento criado. Use o link de pagamento ou o código PIX copia e cola para pagar.'
+        : 'Pagamento criado. Use o link de pagamento para concluir.',
     }
     
     res.json(response)
