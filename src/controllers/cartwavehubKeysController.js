@@ -84,10 +84,11 @@ export const saveCartwavehubKeys = async (req, res) => {
       secret_length: req.body.cartwavehub_api_secret?.length || 0,
       has_public: !!req.body.cartwavehub_api_public,
       base_url: req.body.cartwavehub_base_url,
+      ativo: req.body.cartwavehub_ativo,
       has_password: !!req.body.admin_password,
     })
     
-    const { cartwavehub_api_secret, cartwavehub_api_public, cartwavehub_base_url, admin_password } = req.body
+    const { cartwavehub_api_secret, cartwavehub_api_public, cartwavehub_base_url, cartwavehub_ativo, admin_password } = req.body
 
     // Validar campos obrigatórios
     if (!cartwavehub_api_secret || cartwavehub_api_secret.trim() === '') {
