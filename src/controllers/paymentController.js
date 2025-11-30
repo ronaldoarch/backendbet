@@ -52,9 +52,12 @@ export const createDeposit = async (req, res) => {
       })
     }
 
+    // Usar amountValue nas operações
+    const finalAmount = amountValue
+
     // Buscar usuário
     const [users] = await pool.execute(
-      'SELECT id, email, name FROM users WHERE id = ?',
+      'SELECT id, email, name, phone FROM users WHERE id = ?',
       [userId]
     )
 
@@ -204,9 +207,9 @@ export const createDeposit = async (req, res) => {
        VALUES (?, 'deposit', ?, 'BRL', 'arkama', 'pending', ?, ?, ?, NOW(), NOW())`,
       [
         userId,
-        amount,
+        finalAmount,
         orderData.id || orderData.order_id,
-        description || `Depósito de R$ ${amount.toFixed(2)}`,
+        description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
         JSON.stringify(orderData),
       ]
     )
