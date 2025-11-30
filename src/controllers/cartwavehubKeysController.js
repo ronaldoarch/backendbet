@@ -45,10 +45,12 @@ export const getCartwavehubKeys = async (req, res) => {
       secret_length: config.cartwavehub_api_secret?.length || 0,
       has_public: !!config.cartwavehub_api_public,
       base_url: config.cartwavehub_base_url,
+      ativo: config.cartwavehub_ativo,
     })
 
     const response = {
       ...config,
+      cartwavehub_ativo: config.cartwavehub_ativo,
       has_secret: !!config.cartwavehub_api_secret,
       webhook_url: `${process.env.BASE_URL || 'https://qoo8wgogo4ow4gsg0k0wk4g4.agenciamidas.com'}/api/payments/cartwavehub-webhook`,
     }
