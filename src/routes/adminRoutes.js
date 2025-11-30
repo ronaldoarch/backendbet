@@ -4,6 +4,7 @@ import * as playfiverKeysController from '../controllers/playfiverKeysController
 import * as arkamaKeysController from '../controllers/arkamaKeysController.js'
 import * as providerController from '../controllers/providerController.js'
 import * as bannerController from '../controllers/bannerController.js'
+import * as adminStoryController from '../controllers/adminStoryController.js'
 // import { authenticateToken } from '../middleware/auth.js'
 
 const router = express.Router()
@@ -38,6 +39,12 @@ router.get('/banners/:id', bannerController.getBanner)
 router.post('/banners', bannerController.createBanner)
 router.put('/banners/:id', bannerController.updateBanner)
 router.delete('/banners/:id', bannerController.deleteBanner)
+
+// Stories
+router.get('/stories', adminStoryController.getAllStories)
+router.post('/stories', adminStoryController.createStory)
+router.put('/stories/:id', adminStoryController.updateStory)
+router.delete('/stories/:id', adminStoryController.deleteStory)
 
 export default router
 

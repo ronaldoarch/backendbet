@@ -21,6 +21,7 @@
         "get-ip": "node src/database/get_vercel_ip.js",
         "create-transactions-table": "node src/database/create_transactions_table.js",
         "create-app-settings-table": "node src/database/create_app_settings_table.js",
+        "create-stories-table": "node src/database/create_stories_table.js",
     "pm2:start": "pm2 start src/server.js --name betgenius-api",
     "pm2:stop": "pm2 stop betgenius-api",
     "pm2:restart": "pm2 restart betgenius-api",

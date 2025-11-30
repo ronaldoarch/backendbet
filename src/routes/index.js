@@ -10,6 +10,7 @@ import adminRoutes from './adminRoutes.js'
 import * as providerController from '../controllers/providerController.js'
 import * as gameController from '../controllers/gameController.js'
 import * as bannerController from '../controllers/bannerController.js'
+import * as storyController from '../controllers/storyController.js'
 
 const router = express.Router()
 
@@ -23,6 +24,7 @@ router.use('/payments', paymentRoutes)
 router.use('/admin', adminRoutes)
 router.get('/providers', providerController.getProviders)
 router.get('/banners', bannerController.getBanners) // Public banners route
+router.get('/stories', storyController.getStories) // Public stories route
 
 // Rotas específicas de jogos com prefixos
 router.get('/featured/games', gameController.getFeaturedGames)
