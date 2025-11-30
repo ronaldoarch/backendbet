@@ -214,15 +214,24 @@ export const createOrder = async (data) => {
     }
     
     // Retornar erro mais detalhado
-    const errorMessage = error.response?.data?.message || 
-                        error.response?.data?.error || 
+    const errorData = error.response?.data || {}
+    const errorMessage = errorData.message || 
+                        errorData.error || 
+                        (errorData.errors ? Object.values(errorData.errors).flat().join(', ') : null) ||
                         error.message ||
                         'Erro desconhecido ao criar pagamento'
+    
+    console.error('[Arkama] Detalhes do erro:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      errorMessage,
+      errorData: JSON.stringify(errorData, null, 2),
+    })
     
     return {
       success: false,
       error: errorMessage,
-      details: error.response?.data || { message: error.message },
+      details: errorData,
       status: error.response?.status || 500,
     }
   }
