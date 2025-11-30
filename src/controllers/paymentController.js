@@ -123,30 +123,46 @@ export const createDeposit = async (req, res) => {
       
       // Tentar extrair o erro real que pode estar mascarado por problemas de log
       let realError = arkamaResponse.error || ''
+      let extractedError = null
+      
+      // Procurar por "Error on pix payment" mesmo que esteja mascarado por erros de log
       if (realError.includes('Error on pix payment')) {
-        // Extrair o erro real do contexto
+        // Extrair o contexto JSON
         const contextMatch = realError.match(/Context:\s*({[^}]+})/)
         if (contextMatch) {
           try {
             const context = JSON.parse(contextMatch[1])
+            // Se houver exception com detalhes, usar
             if (context.exception && Object.keys(context.exception).length > 0) {
-              realError = `Erro no pagamento PIX: ${JSON.stringify(context.exception)}`
+              extractedError = `Erro no pagamento PIX: ${JSON.stringify(context.exception)}`
             } else {
-              realError = 'Erro ao processar pagamento PIX. Verifique os dados enviados.'
+              // Exception vazio geralmente indica problema de configuração ou dados
+              extractedError = 'Erro ao processar pagamento PIX. Verifique se a conta Arkama está configurada corretamente para PIX.'
             }
           } catch (e) {
-            realError = 'Erro ao processar pagamento PIX'
+            extractedError = 'Erro ao processar pagamento PIX. Verifique os dados enviados.'
           }
         } else {
-          realError = 'Erro ao processar pagamento PIX. Verifique os dados enviados.'
+          extractedError = 'Erro ao processar pagamento PIX. Verifique os dados enviados.'
         }
-      } else if (realError.includes('Permission denied')) {
-        // Se for erro de permissão de log, tentar extrair o erro real
+      }
+      
+      // Se encontrou erro de permissão de log, mas não extraiu o erro real ainda
+      if (realError.includes('Permission denied') && !extractedError) {
+        // Tentar extrair "Error on pix payment" mesmo com erro de log
         if (realError.includes('Error on pix payment')) {
-          realError = 'Erro ao processar pagamento PIX. Verifique os dados enviados.'
+          extractedError = 'Erro ao processar pagamento PIX. Verifique se a conta Arkama está configurada corretamente para PIX.'
         } else {
-          realError = 'Erro interno do gateway de pagamento. Tente novamente.'
+          extractedError = 'Erro interno do gateway de pagamento. Tente novamente em alguns instantes.'
         }
+      }
+      
+      // Usar o erro extraído se encontrou, senão usar o erro original
+      realError = extractedError || realError
+      
+      // Se o erro ainda contém informações sobre log, limpar
+      if (realError.includes('Permission denied') && realError.includes('storage/logs')) {
+        realError = 'Erro ao processar pagamento PIX. O gateway está com problemas temporários. Tente novamente ou entre em contato com o suporte.'
       }
       
       // Retornar erros de validação (422) com mais detalhes
@@ -167,12 +183,23 @@ export const createDeposit = async (req, res) => {
         console.error('[PaymentController] Erro real extraído:', realError)
         console.error('[PaymentController] Detalhes completos do erro:', JSON.stringify(arkamaResponse, null, 2))
         
-        // Se o erro real for sobre pagamento PIX, pode ser problema nos dados
-        if (realError && (realError.includes('pix payment') || realError.includes('PIX'))) {
+        // Se o erro real for sobre pagamento PIX, pode ser problema nos dados ou configuração
+        if (realError && (realError.toLowerCase().includes('pix') || realError.toLowerCase().includes('payment'))) {
+          // Se o contexto mostra exception vazio, pode ser problema de configuração
+          const hasEmptyException = arkamaResponse.error?.includes('"exception":{}')
+          
           return res.status(400).json({
             error: 'Erro ao processar pagamento PIX',
-            message: realError || 'Não foi possível processar o pagamento PIX. Verifique os dados e tente novamente.',
-            details: arkamaResponse.details || realError,
+            message: hasEmptyException 
+              ? 'Não foi possível processar o pagamento PIX. Verifique se a conta Arkama está configurada corretamente para PIX ou entre em contato com o suporte.'
+              : (realError || 'Não foi possível processar o pagamento PIX. Verifique os dados e tente novamente.'),
+            details: {
+              originalError: arkamaResponse.error,
+              extractedError: realError,
+              suggestion: hasEmptyException 
+                ? 'O erro pode estar relacionado à configuração da conta Arkama. Verifique se o PIX está habilitado na sua conta.'
+                : 'Verifique os dados enviados e tente novamente.',
+            },
             status: false,
           })
         }
