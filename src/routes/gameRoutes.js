@@ -7,6 +7,7 @@ const router = express.Router()
 // Rotas diretas
 router.get('/all', gameController.getAllGames)
 router.get('/single/:id', authenticateToken, gameController.getSingleGame)
+router.get('/favorites', authenticateToken, gameController.getFavorites)
 router.post('/favorite/:id', authenticateToken, gameController.toggleFavorite)
 router.post('/like/:id', authenticateToken, gameController.toggleLike)
 

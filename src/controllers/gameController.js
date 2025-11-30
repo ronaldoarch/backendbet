@@ -561,6 +561,54 @@ export const getSingleGame = async (req, res) => {
 }
 
 /**
+ * GET /api/games/favorites
+ * Lista todos os jogos favoritos do usuário
+ */
+export const getFavorites = async (req, res) => {
+  try {
+    const userId = req.user.id
+
+    const [favorites] = await pool.execute(
+      `SELECT g.*, gf.created_at as favorited_at
+       FROM game_favorites gf
+       INNER JOIN games g ON gf.game_id = g.id
+       WHERE gf.user_id = ? AND g.status = 1
+       ORDER BY gf.created_at DESC`,
+      [userId]
+    )
+
+    const games = favorites.map(game => ({
+      id: game.id,
+      game_code: game.game_code,
+      game_name: game.game_name,
+      cover: getImageUrl(game.cover),
+      provider: game.provider_id,
+      category: null,
+      type: 'slot',
+      distribution: game.distribution || 'play_fiver',
+      technology: 'html5',
+      rtp: 96.5,
+      is_mobile: true,
+      is_featured: game.is_featured || false,
+      is_new: false,
+      views: game.views || 0,
+      likes: 0,
+    }))
+
+    res.json({
+      status: true,
+      games: games,
+    })
+  } catch (error) {
+    console.error('Erro ao buscar favoritos:', error)
+    res.status(500).json({
+      error: 'Erro ao buscar favoritos',
+      status: false,
+    })
+  }
+}
+
+/**
  * POST /api/games/favorite/:id
  * Toggle de favorito
  */
