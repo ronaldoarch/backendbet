@@ -283,10 +283,78 @@ export const createDeposit = async (req, res) => {
       console.log('[PaymentController] QR code não disponível, mas PIX copia e cola está disponível')
     }
     
+    // Se não encontrou PIX code ainda, tentar buscar em todos os campos recursivamente
+    if (!pixCode) {
+      const searchInObject = (obj, depth = 0) => {
+        if (depth > 3) return null // Limitar profundidade
+        
+        for (const key in obj) {
+          if (obj[key] === null || obj[key] === undefined) continue
+          
+          // Se for string e parecer um PIX code
+          if (typeof obj[key] === 'string') {
+            const value = obj[key].trim()
+            // PIX codes geralmente começam com "000201" ou têm mais de 100 caracteres
+            if (value.length > 50 && 
+                (value.startsWith('000201') || 
+                 value.includes('BR.GOV.BCB.PIX') ||
+                 key.toLowerCase().includes('pix') ||
+                 key.toLowerCase().includes('copia') ||
+                 key.toLowerCase().includes('cola') ||
+                 key.toLowerCase().includes('payload'))) {
+              return value
+            }
+          }
+          
+          // Se for objeto, buscar recursivamente
+          if (typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+            const found = searchInObject(obj[key], depth + 1)
+            if (found) return found
+          }
+          
+          // Se for array, buscar em cada item
+          if (Array.isArray(obj[key])) {
+            for (const item of obj[key]) {
+              if (typeof item === 'object') {
+                const found = searchInObject(item, depth + 1)
+                if (found) return found
+              }
+            }
+          }
+        }
+        return null
+      }
+      
+      pixCode = searchInObject(orderData)
+      if (pixCode) {
+        console.log('[PaymentController] ✅ PIX code encontrado via busca recursiva!')
+      }
+    }
+
     // Se não houver nenhum dos dois, retornar erro
     if (!qrCode && !pixCode) {
       console.error('[PaymentController] ❌ ERRO: Nem QR code nem PIX copia e cola encontrados na resposta da Arkama')
       console.error('[PaymentController] Resposta completa:', JSON.stringify(orderData, null, 2))
+      
+      // Mesmo sem PIX code, retornar sucesso se houver payment_url
+      if (orderData.payment_url || orderData.url || orderData.link) {
+        return res.json({
+          success: true,
+          transaction_id: transactionId,
+          payment_url: orderData.payment_url || orderData.url || orderData.link,
+          qr_code: null,
+          pix_code: null,
+          order_id: orderData.id || orderData.order_id,
+          status: orderData.status,
+          message: 'Pagamento criado. Use o link de pagamento para concluir.',
+        })
+      }
+      
+      return res.status(500).json({
+        error: 'Erro ao processar pagamento',
+        message: 'Não foi possível obter os dados de pagamento. Tente novamente.',
+        status: false,
+      })
     }
 
     // Retornar dados de pagamento
@@ -309,8 +377,7 @@ export const createDeposit = async (req, res) => {
     } else if (qrCode) {
       response.message = 'Pagamento criado com sucesso. Escaneie o QR code para pagar.'
     } else {
-      response.message = 'Pagamento criado, mas os dados de pagamento não estão disponíveis. Entre em contato com o suporte.'
-      console.error('[PaymentController] ⚠️ ATENÇÃO: Retornando resposta sem QR code nem PIX code')
+      response.message = 'Pagamento criado. Use o link de pagamento para concluir.'
     }
     
     res.json(response)
