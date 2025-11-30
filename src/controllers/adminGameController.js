@@ -232,6 +232,7 @@ export const updateGame = async (req, res) => {
       // Se for uma URL completa (http/https), usar diretamente
       if (coverValue.startsWith('http://') || coverValue.startsWith('https://')) {
         // URL completa - usar como está
+        console.log('[Admin] Atualizando jogo com URL de imagem:', coverValue.substring(0, 100) + '...')
         coverValue = coverValue
       } 
       // Se for base64 e muito grande, tentar usar URL se disponível ou truncar
@@ -241,6 +242,16 @@ export const updateGame = async (req, res) => {
       }
       // Caso contrário, usar como está
     }
+
+    console.log('[Admin] Dados para atualização:', {
+      id,
+      provider_id,
+      game_name,
+      game_code,
+      game_id,
+      cover_length: coverValue ? coverValue.length : 0,
+      cover_type: coverValue ? (coverValue.startsWith('http') ? 'URL' : coverValue.startsWith('data:') ? 'base64' : 'other') : 'null',
+    })
 
     // Atualizar jogo
     await pool.execute(
@@ -309,12 +320,16 @@ export const updateGame = async (req, res) => {
 
     res.json({
       message: 'Jogo atualizado com sucesso',
+      status: true,
     })
   } catch (error) {
     console.error('Erro ao atualizar jogo:', error)
+    console.error('Stack:', error.stack)
     res.status(500).json({
-      error: 'Erro ao atualizar jogo',
+      error: error.message || 'Erro ao atualizar jogo',
+      message: error.message || 'Erro desconhecido ao atualizar jogo',
       status: false,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     })
   }
 }
