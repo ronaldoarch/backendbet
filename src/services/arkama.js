@@ -115,6 +115,8 @@ export const createOrder = async (data) => {
       customer: {
         name: data.user_name || data.user_email,
         email: data.user_email,
+        // Adicionar telefone se disponível
+        ...(data.user_phone && { phone: data.user_phone }),
       },
       items: [
         {
@@ -125,7 +127,9 @@ export const createOrder = async (data) => {
         }
       ],
       shipping: {
-        address: [data.shipping_address || 'Endereço não informado'], // Endereço deve ser array
+        address: Array.isArray(data.shipping_address) 
+          ? data.shipping_address 
+          : [data.shipping_address || 'Endereço não informado'], // Endereço deve ser array
       },
       ip: data.ip || '0.0.0.0', // IP do cliente (obrigatório)
       user_email: data.user_email,
@@ -133,6 +137,22 @@ export const createOrder = async (data) => {
       description: data.description || `Depósito de R$ ${amountValue.toFixed(2)}`,
       callback_url: data.callback_url,
       return_url: data.return_url,
+    }
+    
+    // Remover campos undefined/null para evitar problemas
+    Object.keys(requestBody).forEach(key => {
+      if (requestBody[key] === undefined || requestBody[key] === null) {
+        delete requestBody[key]
+      }
+    })
+    
+    // Limpar objeto customer
+    if (requestBody.customer) {
+      Object.keys(requestBody.customer).forEach(key => {
+        if (requestBody.customer[key] === undefined || requestBody.customer[key] === null) {
+          delete requestBody.customer[key]
+        }
+      })
     }
     
     // Validar campos obrigatórios antes de enviar

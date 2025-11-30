@@ -72,10 +72,12 @@ export const createDeposit = async (req, res) => {
       amount: parseFloat(amount).toFixed(2),
       user_email: user.email,
       user_name: user.name || user.email,
+      user_phone: user.phone || null,
       description: description || `Depósito de R$ ${amount.toFixed(2)}`,
       callback_url: `${baseUrl}/api/payments/arkama-webhook`,
       return_url: `${baseUrl}/wallet?payment=success`,
       ip: clientIp,
+      shipping_address: 'Endereço não informado', // Endereço padrão para produtos digitais
     })
 
     console.log('[PaymentController] Resposta da Arkama:', {
