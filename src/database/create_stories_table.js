@@ -19,7 +19,7 @@ async function createStoriesTable() {
       CREATE TABLE stories (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
-        image TEXT NOT NULL COMMENT 'Imagem do story (base64 ou URL)',
+        image TEXT NULL COMMENT 'Imagem do story (base64 ou URL)',
         link VARCHAR(500) NULL COMMENT 'Link ao clicar no story',
         color VARCHAR(50) NULL COMMENT 'Cor de fundo (hex)',
         icon VARCHAR(100) NULL COMMENT 'Ícone/emoji do story',
@@ -34,13 +34,22 @@ async function createStoriesTable() {
     
     console.log('✅ Tabela stories criada com sucesso!')
     
-    // Inserir dados iniciais (IPHONE, XIAOMI, SEXTOU)
-    await pool.execute(`
-      INSERT INTO stories (title, color, icon, order_index, status) VALUES
-      ('IPHONE', '#ec4899', '📱', 1, 1),
-      ('XIAOMI', '#16a34a', '📱', 2, 1),
-      ('SEXTOU', '#ea580c', '▶️', 3, 1)
-    `)
+    // Verificar se já existem stories antes de inserir
+    const [existing] = await pool.execute('SELECT COUNT(*) as count FROM stories')
+    
+    if (existing[0].count === 0) {
+      // Inserir dados iniciais (IPHONE, XIAOMI, SEXTOU)
+      await pool.execute(`
+        INSERT INTO stories (title, color, icon, order_index, status, image) VALUES
+        ('IPHONE', '#ec4899', '📱', 1, 1, NULL),
+        ('XIAOMI', '#16a34a', '📱', 2, 1, NULL),
+        ('SEXTOU', '#ea580c', '▶️', 3, 1, NULL)
+      `)
+      
+      console.log('✅ Dados iniciais inseridos!')
+    } else {
+      console.log('⏭️  Dados iniciais já existem, pulando inserção.')
+    }
     
     console.log('✅ Dados iniciais inseridos!')
     
