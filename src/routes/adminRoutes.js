@@ -2,6 +2,7 @@ import express from 'express'
 import * as adminGameController from '../controllers/adminGameController.js'
 import * as playfiverKeysController from '../controllers/playfiverKeysController.js'
 import * as arkamaKeysController from '../controllers/arkamaKeysController.js'
+import * as cartwavehubKeysController from '../controllers/cartwavehubKeysController.js'
 import * as providerController from '../controllers/providerController.js'
 import * as bannerController from '../controllers/bannerController.js'
 import * as adminStoryController from '../controllers/adminStoryController.js'
@@ -26,6 +27,10 @@ router.put('/playfiver-keys/info', playfiverKeysController.updatePlayfiverInfo)
 // Arkama Keys
 router.get('/arkama-keys', arkamaKeysController.getArkamaKeys)
 router.post('/arkama-keys', arkamaKeysController.saveArkamaKeys)
+
+// Cartwavehub Keys
+router.get('/cartwavehub-keys', cartwavehubKeysController.getCartwavehubKeys)
+router.post('/cartwavehub-keys', cartwavehubKeysController.saveCartwavehubKeys)
 
 // Providers
 router.get('/providers', providerController.getAllProviders)

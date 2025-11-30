@@ -1,5 +1,6 @@
 import pool from '../config/database.js'
 import arkamaService from '../services/arkama.js'
+import cartwavehubService from '../services/cartwavehub.js'
 
 /**
  * POST /api/payments/deposit
@@ -22,7 +23,7 @@ export const createDeposit = async (req, res) => {
     }
 
     const userId = req.user.id
-    const { amount, description, gateway } = req.body
+    const { amount, description, gateway = 'cartwavehub' } = req.body // Default para cartwavehub
 
     console.log('[PaymentController] Dados recebidos:', {
       amount,
@@ -107,26 +108,28 @@ export const createDeposit = async (req, res) => {
       shipping_address: 'Endereço não informado', // Endereço padrão para produtos digitais
     })
 
-    console.log('[PaymentController] Resposta da Arkama:', {
-      success: arkamaResponse.success,
-      hasData: !!arkamaResponse.data,
-      error: arkamaResponse.error,
+    console.log(`[PaymentController] Resposta do ${selectedGateway}:`, {
+      success: paymentResponse.success,
+      hasData: !!paymentResponse.data,
+      error: paymentResponse.error,
     })
 
-    if (!arkamaResponse.success) {
-      console.error('[PaymentController] ❌ Erro na Arkama:', {
-        error: arkamaResponse.error,
-        details: arkamaResponse.details,
-        status: arkamaResponse.status,
-        fullResponse: JSON.stringify(arkamaResponse, null, 2),
+    if (!paymentResponse.success) {
+      console.error(`[PaymentController] ❌ Erro no ${selectedGateway}:`, {
+        error: paymentResponse.error,
+        details: paymentResponse.details,
+        status: paymentResponse.status,
+        fullResponse: JSON.stringify(paymentResponse, null, 2),
       })
       
-      // Tentar extrair o erro real que pode estar mascarado por problemas de log
-      let realError = arkamaResponse.error || ''
+      // Tentar extrair o erro real
+      let realError = paymentResponse.error || ''
       let extractedError = null
       
-      // Procurar por "Error on pix payment" mesmo que esteja mascarado por erros de log
-      if (realError.includes('Error on pix payment')) {
+      // Se for Cartwavehub, não precisa extrair erro mascarado
+      if (selectedGateway === 'cartwavehub') {
+        realError = paymentResponse.error || 'Erro ao processar pagamento'
+      } else if (realError.includes('Error on pix payment')) {
         // Extrair o contexto JSON
         const contextMatch = realError.match(/Context:\s*({[^}]+})/)
         if (contextMatch) {
@@ -166,27 +169,27 @@ export const createDeposit = async (req, res) => {
       }
       
       // Retornar erros de validação (422) com mais detalhes
-      if (arkamaResponse.status === 422 && arkamaResponse.details?.errors) {
-        const errorMessages = Object.values(arkamaResponse.details.errors).flat().join(', ')
+      if (paymentResponse.status === 422 && paymentResponse.details?.errors) {
+        const errorMessages = Object.values(paymentResponse.details.errors).flat().join(', ')
         return res.status(422).json({
           error: 'Erro de validação',
           message: errorMessages || realError || 'Erro ao criar pagamento',
-          errors: arkamaResponse.details.errors,
-          details: arkamaResponse.details,
+          errors: paymentResponse.details.errors,
+          details: paymentResponse.details,
           status: false,
         })
       }
       
-      // Erro 500 do servidor Arkama (problema interno deles)
-      if (arkamaResponse.status === 500) {
-        console.error('[PaymentController] ⚠️ Erro 500 da Arkama - Gateway temporariamente indisponível')
+      // Erro 500 do servidor (problema interno do gateway)
+      if (paymentResponse.status === 500) {
+        console.error(`[PaymentController] ⚠️ Erro 500 do ${selectedGateway} - Gateway temporariamente indisponível`)
         console.error('[PaymentController] Erro real extraído:', realError)
-        console.error('[PaymentController] Detalhes completos do erro:', JSON.stringify(arkamaResponse, null, 2))
+        console.error('[PaymentController] Detalhes completos do erro:', JSON.stringify(paymentResponse, null, 2))
         
         // Se o erro real for sobre pagamento PIX, pode ser problema nos dados ou configuração
         if (realError && (realError.toLowerCase().includes('pix') || realError.toLowerCase().includes('payment'))) {
-          // Se o contexto mostra exception vazio, pode ser problema de configuração
-          const hasEmptyException = arkamaResponse.error?.includes('"exception":{}')
+          // Se o contexto mostra exception vazio, pode ser problema de configuração (apenas Arkama)
+          const hasEmptyException = selectedGateway === 'arkama' && paymentResponse.error?.includes('"exception":{}')
           
           // Mensagem mais específica baseada no erro
           let userMessage = 'Não foi possível processar o pagamento. Entre em contato com o suporte.'
@@ -221,60 +224,61 @@ export const createDeposit = async (req, res) => {
         })
       }
       
-      // Erro 400 do servidor Arkama (dados inválidos)
-      if (arkamaResponse.status === 400) {
-        console.error('[PaymentController] ⚠️ Erro 400 da Arkama - Dados inválidos')
-        console.error('[PaymentController] Detalhes completos do erro:', JSON.stringify(arkamaResponse, null, 2))
+      // Erro 400 do servidor (dados inválidos)
+      if (paymentResponse.status === 400) {
+        console.error(`[PaymentController] ⚠️ Erro 400 do ${selectedGateway} - Dados inválidos`)
+        console.error('[PaymentController] Detalhes completos do erro:', JSON.stringify(paymentResponse, null, 2))
         
-        const errorMessage = arkamaResponse.error || 
-                            arkamaResponse.details?.message ||
+        const errorMessage = paymentResponse.error || 
+                            paymentResponse.details?.message ||
                             realError ||
                             'Dados inválidos para processar o pagamento'
         
         return res.status(400).json({
           error: 'Erro ao processar pagamento',
           message: errorMessage,
-          details: arkamaResponse.details || arkamaResponse.error,
+          details: paymentResponse.details || paymentResponse.error,
           status: false,
         })
       }
       
       // Erro de conexão/timeout
-      if (!arkamaResponse.status || arkamaResponse.status >= 500) {
-        console.error('[PaymentController] ⚠️ Erro de conexão ou servidor da Arkama')
+      if (!paymentResponse.status || paymentResponse.status >= 500) {
+        console.error(`[PaymentController] ⚠️ Erro de conexão ou servidor do ${selectedGateway}`)
         return res.status(503).json({
           error: 'Serviço temporariamente indisponível',
           message: 'Não foi possível conectar ao gateway de pagamento. Por favor, tente novamente em alguns instantes.',
-          details: arkamaResponse.error || 'Erro de conexão com o gateway',
+          details: paymentResponse.error || 'Erro de conexão com o gateway',
           status: false,
         })
       }
       
-      // Outros erros (400, 401, 403, etc.)
-      const errorMessage = arkamaResponse.error || 
-                          (arkamaResponse.details?.message) ||
+      // Outros erros (401, 403, etc.)
+      const errorMessage = paymentResponse.error || 
+                          (paymentResponse.details?.message) ||
                           'Erro ao criar pagamento'
       
-      return res.status(arkamaResponse.status || 500).json({
+      return res.status(paymentResponse.status || 500).json({
         error: 'Erro ao criar pagamento',
         message: errorMessage,
-        details: arkamaResponse.details,
+        details: paymentResponse.details,
         status: false,
       })
     }
 
-    const orderData = arkamaResponse.data
+    const orderData = paymentResponse.data
 
     // Criar registro de transação pendente
     console.log('[PaymentController] Criando registro de transação...')
     const [result] = await pool.execute(
       `INSERT INTO transactions 
        (user_id, type, amount, currency, gateway, status, payment_id, description, metadata, created_at, updated_at)
-       VALUES (?, 'deposit', ?, 'BRL', 'arkama', 'pending', ?, ?, ?, NOW(), NOW())`,
+       VALUES (?, 'deposit', ?, 'BRL', ?, 'pending', ?, ?, ?, NOW(), NOW())`,
       [
         userId,
         finalAmount,
-        orderData.id || orderData.order_id,
+        selectedGateway,
+        orderData.id || orderData.order_id || orderData.transaction_id,
         description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
         JSON.stringify(orderData),
       ]
@@ -282,65 +286,104 @@ export const createDeposit = async (req, res) => {
 
     const transactionId = result.insertId
 
-    // Extrair dados do pagamento da resposta da Arkama
-    // Conforme solicitado pelo gateway: desativar geração de QR code e usar integração normal
-    // A Arkama retorna payment_url para integração normal (sem QR code)
-    console.log('[PaymentController] Resposta completa da Arkama:', JSON.stringify(orderData, null, 2))
+    // Extrair dados do pagamento da resposta do gateway
+    console.log(`[PaymentController] Resposta completa do ${selectedGateway}:`, JSON.stringify(orderData, null, 2))
     
-    // Buscar payment_url (prioridade - integração normal)
-    let paymentUrl = orderData.payment_url || 
-                     orderData.url || 
-                     orderData.link ||
-                     orderData.payment?.url ||
-                     orderData.payment?.link ||
-                     null
+    let paymentUrl = null
+    let qrCode = null
+    let pixCode = null
+    
+    if (selectedGateway === 'cartwavehub') {
+      // Cartwavehub retorna: id, pix.encodedImage (QR Code base64), pix.payload (PIX Copia e Cola)
+      qrCode = orderData.pix?.encodedImage || orderData.encodedImage || null
+      pixCode = orderData.pix?.payload || orderData.payload || null
+      // Cartwavehub não retorna payment_url, apenas QR code e PIX code
+    } else {
+      // Arkama: buscar payment_url (prioridade - integração normal)
+      paymentUrl = orderData.payment_url || 
+                   orderData.url || 
+                   orderData.link ||
+                   orderData.payment?.url ||
+                   orderData.payment?.link ||
+                   null
 
-    // Buscar PIX copia e cola (opcional - apenas se disponível)
-    let pixCode = orderData.pix_copia_cola || 
-                  orderData.pix?.pix_copia_cola ||
-                  orderData.pix_code ||
-                  orderData.pix?.pix_code ||
-                  orderData.pix?.payload ||
-                  orderData.payload ||
-                  null
+      // Buscar PIX copia e cola (opcional - apenas se disponível)
+      pixCode = orderData.pix_copia_cola || 
+                orderData.pix?.pix_copia_cola ||
+                orderData.pix_code ||
+                orderData.pix?.pix_code ||
+                orderData.pix?.payload ||
+                orderData.payload ||
+                null
+    }
 
     // Log do que foi encontrado
-    if (paymentUrl) {
-      console.log('[PaymentController] ✅ Payment URL encontrado:', paymentUrl)
-    } else {
-      console.warn('[PaymentController] ⚠️ Payment URL NÃO encontrado na resposta')
-    }
-    
-    if (pixCode) {
-      console.log('[PaymentController] ✅ PIX copia e cola encontrado:', pixCode.substring(0, 50) + '...')
-    } else {
-      console.log('[PaymentController] ℹ️ PIX copia e cola não disponível (normal para integração sem QR code)')
-    }
-    
-    // Se não houver payment_url, retornar erro
-    if (!paymentUrl) {
-      console.error('[PaymentController] ❌ ERRO: Payment URL não encontrado na resposta da Arkama')
-      console.error('[PaymentController] Resposta completa:', JSON.stringify(orderData, null, 2))
+    if (selectedGateway === 'cartwavehub') {
+      if (qrCode) {
+        console.log('[PaymentController] ✅ QR Code encontrado (base64)')
+      } else {
+        console.warn('[PaymentController] ⚠️ QR Code NÃO encontrado na resposta')
+      }
       
-      return res.status(500).json({
-        error: 'Erro ao processar pagamento',
-        message: 'Não foi possível obter o link de pagamento. Tente novamente.',
-        status: false,
-      })
+      if (pixCode) {
+        console.log('[PaymentController] ✅ PIX copia e cola encontrado:', pixCode.substring(0, 50) + '...')
+      } else {
+        console.warn('[PaymentController] ⚠️ PIX copia e cola NÃO encontrado na resposta')
+      }
+      
+      // Para Cartwavehub, QR code ou PIX code são obrigatórios
+      if (!qrCode && !pixCode) {
+        console.error('[PaymentController] ❌ ERRO: QR Code e PIX Code não encontrados na resposta do Cartwavehub')
+        console.error('[PaymentController] Resposta completa:', JSON.stringify(orderData, null, 2))
+        
+        return res.status(500).json({
+          error: 'Erro ao processar pagamento',
+          message: 'Não foi possível obter o QR Code ou código PIX. Tente novamente.',
+          status: false,
+        })
+      }
+    } else {
+      // Para Arkama, payment_url é obrigatório
+      if (paymentUrl) {
+        console.log('[PaymentController] ✅ Payment URL encontrado:', paymentUrl)
+      } else {
+        console.warn('[PaymentController] ⚠️ Payment URL NÃO encontrado na resposta')
+      }
+      
+      if (pixCode) {
+        console.log('[PaymentController] ✅ PIX copia e cola encontrado:', pixCode.substring(0, 50) + '...')
+      } else {
+        console.log('[PaymentController] ℹ️ PIX copia e cola não disponível (normal para integração sem QR code)')
+      }
+      
+      // Se não houver payment_url, retornar erro
+      if (!paymentUrl) {
+        console.error('[PaymentController] ❌ ERRO: Payment URL não encontrado na resposta da Arkama')
+        console.error('[PaymentController] Resposta completa:', JSON.stringify(orderData, null, 2))
+        
+        return res.status(500).json({
+          error: 'Erro ao processar pagamento',
+          message: 'Não foi possível obter o link de pagamento. Tente novamente.',
+          status: false,
+        })
+      }
     }
 
-    // Retornar dados de pagamento (integração normal - sem QR code)
+    // Retornar dados de pagamento
     const response = {
       success: true,
       transaction_id: transactionId,
+      payment_id: orderData.id || orderData.order_id || orderData.transaction_id,
       payment_url: paymentUrl,
-      pix_code: pixCode || null, // Opcional
-      qr_code: null, // Desativado conforme solicitado
-      order_id: orderData.id || orderData.order_id,
-      status: orderData.status,
-      message: pixCode 
-        ? 'Pagamento criado. Use o link de pagamento ou o código PIX copia e cola para pagar.'
-        : 'Pagamento criado. Use o link de pagamento para concluir.',
+      pix_code: pixCode,
+      qr_code: qrCode,
+      message: selectedGateway === 'cartwavehub'
+        ? (qrCode 
+          ? 'Depósito criado com sucesso. Escaneie o QR Code ou copie o código PIX.'
+          : 'Depósito criado com sucesso. Copie o código PIX para pagar.')
+        : (pixCode 
+          ? 'Depósito criado com sucesso. Use o link de pagamento ou o código PIX copia e cola para pagar.'
+          : 'Depósito criado com sucesso. Use o link de pagamento para concluir.'),
     }
     
     res.json(response)

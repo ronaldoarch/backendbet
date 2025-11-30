@@ -19,6 +19,18 @@ router.get('/arkama-webhook', (req, res) => {
 
 router.post('/arkama-webhook', paymentController.arkamaWebhook)
 
+// Webhook do Cartwavehub (público, sem autenticação)
+router.get('/cartwavehub-webhook', (req, res) => {
+  // Responder para validação de postback (GET)
+  res.status(200).json({
+    success: true,
+    message: 'Webhook endpoint está ativo',
+  })
+})
+
+import * as cartwavehubWebhookController from '../controllers/cartwavehubWebhookController.js'
+router.post('/cartwavehub-webhook', cartwavehubWebhookController.cartwavehubWebhook)
+
 // Verificar status de transação
 router.get('/status/:transactionId', authenticateToken, paymentController.getTransactionStatus)
 
