@@ -83,30 +83,57 @@ export const createDeposit = async (req, res) => {
                     req.connection.remoteAddress || 
                     '0.0.0.0'
 
-    // Criar compra na Arkama
-    console.log('[PaymentController] Chamando Arkama API...')
-    console.log('[PaymentController] Dados enviados:', {
-      amount: finalAmount.toFixed(2),
-      user_email: user.email,
-      user_name: user.name || user.email,
-      user_phone: user.phone || null,
-      description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
-      callback_url: `${baseUrl}/api/payments/arkama-webhook`,
-      return_url: `${baseUrl}/wallet?payment=success`,
-      ip: clientIp,
-    })
+    // Escolher gateway (cartwavehub ou arkama)
+    const selectedGateway = gateway || 'cartwavehub'
     
-    const arkamaResponse = await arkamaService.createOrder({
-      amount: finalAmount.toFixed(2),
-      user_email: user.email,
-      user_name: user.name || user.email,
-      user_phone: user.phone || null,
-      description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
-      callback_url: `${baseUrl}/api/payments/arkama-webhook`,
-      return_url: `${baseUrl}/wallet?payment=success`,
-      ip: clientIp,
-      shipping_address: 'Endereço não informado', // Endereço padrão para produtos digitais
-    })
+    let paymentResponse = null
+    
+    if (selectedGateway === 'cartwavehub') {
+      // Criar transação PIX no Cartwavehub
+      console.log('[PaymentController] Chamando Cartwavehub API...')
+      console.log('[PaymentController] Dados enviados:', {
+        amount: finalAmount,
+        user_email: user.email,
+        user_id: userId,
+        description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
+        callback_url: `${baseUrl}/api/payments/cartwavehub-webhook`,
+        ip: clientIp,
+      })
+      
+      paymentResponse = await cartwavehubService.createPixTransaction({
+        amount: finalAmount,
+        user_email: user.email,
+        user_id: userId,
+        description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
+        callback_url: `${baseUrl}/api/payments/cartwavehub-webhook`,
+        ip: clientIp,
+      })
+    } else {
+      // Criar compra na Arkama (fallback)
+      console.log('[PaymentController] Chamando Arkama API...')
+      console.log('[PaymentController] Dados enviados:', {
+        amount: finalAmount.toFixed(2),
+        user_email: user.email,
+        user_name: user.name || user.email,
+        user_phone: user.phone || null,
+        description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
+        callback_url: `${baseUrl}/api/payments/arkama-webhook`,
+        return_url: `${baseUrl}/wallet?payment=success`,
+        ip: clientIp,
+      })
+      
+      paymentResponse = await arkamaService.createOrder({
+        amount: finalAmount.toFixed(2),
+        user_email: user.email,
+        user_name: user.name || user.email,
+        user_phone: user.phone || null,
+        description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
+        callback_url: `${baseUrl}/api/payments/arkama-webhook`,
+        return_url: `${baseUrl}/wallet?payment=success`,
+        ip: clientIp,
+        shipping_address: 'Endereço não informado',
+      })
+    }
 
     console.log(`[PaymentController] Resposta do ${selectedGateway}:`, {
       success: paymentResponse.success,
