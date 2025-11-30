@@ -49,10 +49,21 @@ export const getCartwavehubKeys = async (req, res) => {
  */
 export const saveCartwavehubKeys = async (req, res) => {
   try {
+    console.log('[CartwavehubKeys] ==========================================')
+    console.log('[CartwavehubKeys] Recebendo requisição para salvar credenciais')
+    console.log('[CartwavehubKeys] Body recebido:', {
+      has_secret: !!req.body.cartwavehub_api_secret,
+      secret_length: req.body.cartwavehub_api_secret?.length || 0,
+      has_public: !!req.body.cartwavehub_api_public,
+      base_url: req.body.cartwavehub_base_url,
+      has_password: !!req.body.admin_password,
+    })
+    
     const { cartwavehub_api_secret, cartwavehub_api_public, cartwavehub_base_url, admin_password } = req.body
 
     // Validar campos obrigatórios
     if (!cartwavehub_api_secret || cartwavehub_api_secret.trim() === '') {
+      console.error('[CartwavehubKeys] ❌ API Secret não fornecido')
       return res.status(400).json({
         error: 'API Secret é obrigatório',
         status: false,
@@ -61,6 +72,7 @@ export const saveCartwavehubKeys = async (req, res) => {
 
     // TODO: Validar admin_password se necessário (2FA)
     if (!admin_password || admin_password.trim() === '') {
+      console.error('[CartwavehubKeys] ❌ Senha 2FA não fornecida')
       return res.status(400).json({
         error: 'Senha de 2FA é obrigatória',
         status: false,
@@ -70,6 +82,13 @@ export const saveCartwavehubKeys = async (req, res) => {
     // Validar URL base
     const baseUrl = cartwavehub_base_url?.trim() || 'https://api.cartwavehub.com.br'
 
+    console.log('[CartwavehubKeys] Dados que serão salvos:', {
+      base_url: baseUrl,
+      has_secret: !!cartwavehub_api_secret,
+      secret_preview: cartwavehub_api_secret.substring(0, 20) + '...',
+      has_public: !!cartwavehub_api_public,
+    })
+
     // Salvar ou atualizar credenciais
     const credentials = [
       { key: 'cartwavehub_api_secret', value: cartwavehub_api_secret.trim() },
@@ -78,7 +97,8 @@ export const saveCartwavehubKeys = async (req, res) => {
     ]
 
     for (const cred of credentials) {
-      await pool.execute(
+      console.log(`[CartwavehubKeys] Salvando ${cred.key}...`)
+      const [result] = await pool.execute(
         `INSERT INTO app_settings (setting_key, setting_value, updated_at)
          VALUES (?, ?, NOW())
          ON DUPLICATE KEY UPDATE 
@@ -86,13 +106,30 @@ export const saveCartwavehubKeys = async (req, res) => {
          updated_at = NOW()`,
         [cred.key, cred.value]
       )
+      console.log(`[CartwavehubKeys] ✅ ${cred.key} salvo com sucesso`, {
+        affectedRows: result.affectedRows,
+        insertId: result.insertId,
+      })
     }
 
-    console.log('[CartwavehubKeys] Credenciais salvas:', {
-      base_url: baseUrl,
-      has_secret: !!cartwavehub_api_secret,
-      has_public: !!cartwavehub_api_public,
+    // Verificar se foi salvo corretamente
+    const [verifySettings] = await pool.execute(
+      `SELECT setting_key, setting_value 
+       FROM app_settings 
+       WHERE setting_key IN ('cartwavehub_api_secret', 'cartwavehub_api_public', 'cartwavehub_base_url')`
+    )
+    
+    console.log('[CartwavehubKeys] Verificação após salvar:', {
+      settings_encontrados: verifySettings.length,
+      settings: verifySettings.map(s => ({
+        key: s.setting_key,
+        has_value: !!s.setting_value,
+        value_length: s.setting_value?.length || 0,
+      })),
     })
+
+    console.log('[CartwavehubKeys] ✅ Credenciais salvas com sucesso!')
+    console.log('[CartwavehubKeys] ==========================================')
 
     res.json({
       message: 'Credenciais Cartwavehub salvas com sucesso',
@@ -104,7 +141,11 @@ export const saveCartwavehubKeys = async (req, res) => {
       },
     })
   } catch (error) {
-    console.error('Erro ao salvar credenciais Cartwavehub:', error)
+    console.error('[CartwavehubKeys] ❌ Erro ao salvar credenciais:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+    })
     res.status(500).json({
       error: 'Erro ao salvar credenciais',
       message: error.message || 'Erro desconhecido',
