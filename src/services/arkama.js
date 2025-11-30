@@ -171,7 +171,7 @@ export const createOrder = async (data) => {
     }
     
     // Validar campos obrigatórios antes de enviar
-    if (!requestBody.value || parseFloat(requestBody.value) <= 0) {
+    if (!requestBody.value || typeof requestBody.value !== 'number' || requestBody.value <= 0) {
       throw new Error('Valor do pagamento inválido')
     }
     if (!requestBody.customer.email) {
