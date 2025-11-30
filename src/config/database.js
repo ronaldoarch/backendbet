@@ -14,7 +14,7 @@ const pool = mysql.createPool({
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
-  connectTimeout: 5000, // 5 segundos para conectar
+  connectTimeout: 30000, // 30 segundos para conectar (Railway pode ser mais lento)
   // acquireTimeout não existe no mysql2, removido
   // timeout não existe no mysql2, removido (causa warning)
   ssl: process.env.DB_SSL === 'true' || process.env.DB_SSL === '1' ? {
