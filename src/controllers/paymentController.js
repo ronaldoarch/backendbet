@@ -85,17 +85,19 @@ export const createDeposit = async (req, res) => {
     })
 
     if (!arkamaResponse.success) {
-      console.error('[PaymentController] Erro na Arkama:', {
+      console.error('[PaymentController] ❌ Erro na Arkama:', {
         error: arkamaResponse.error,
         details: arkamaResponse.details,
         status: arkamaResponse.status,
+        fullResponse: JSON.stringify(arkamaResponse, null, 2),
       })
       
       // Retornar erros de validação (422) com mais detalhes
       if (arkamaResponse.status === 422 && arkamaResponse.details?.errors) {
+        const errorMessages = Object.values(arkamaResponse.details.errors).flat().join(', ')
         return res.status(422).json({
           error: 'Erro de validação',
-          message: arkamaResponse.error || 'Erro ao criar pagamento',
+          message: errorMessages || arkamaResponse.error || 'Erro ao criar pagamento',
           errors: arkamaResponse.details.errors,
           details: arkamaResponse.details,
           status: false,
@@ -104,17 +106,34 @@ export const createDeposit = async (req, res) => {
       
       // Erro 500 do servidor Arkama (problema interno deles)
       if (arkamaResponse.status === 500) {
+        console.error('[PaymentController] ⚠️ Erro 500 da Arkama - Gateway temporariamente indisponível')
         return res.status(503).json({
           error: 'Serviço temporariamente indisponível',
           message: 'O gateway de pagamento está temporariamente indisponível. Por favor, tente novamente em alguns instantes.',
-          details: 'Erro interno do servidor do gateway de pagamento',
+          details: arkamaResponse.error || 'Erro interno do servidor do gateway de pagamento',
           status: false,
         })
       }
       
+      // Erro de conexão/timeout
+      if (!arkamaResponse.status || arkamaResponse.status >= 500) {
+        console.error('[PaymentController] ⚠️ Erro de conexão ou servidor da Arkama')
+        return res.status(503).json({
+          error: 'Serviço temporariamente indisponível',
+          message: 'Não foi possível conectar ao gateway de pagamento. Por favor, tente novamente em alguns instantes.',
+          details: arkamaResponse.error || 'Erro de conexão com o gateway',
+          status: false,
+        })
+      }
+      
+      // Outros erros (400, 401, 403, etc.)
+      const errorMessage = arkamaResponse.error || 
+                          (arkamaResponse.details?.message) ||
+                          'Erro ao criar pagamento'
+      
       return res.status(arkamaResponse.status || 500).json({
         error: 'Erro ao criar pagamento',
-        message: arkamaResponse.error || 'Erro desconhecido',
+        message: errorMessage,
         details: arkamaResponse.details,
         status: false,
       })

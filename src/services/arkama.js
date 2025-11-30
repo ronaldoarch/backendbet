@@ -156,23 +156,39 @@ export const createOrder = async (data) => {
       data: response.data,
     }
   } catch (error) {
-    console.error('[Arkama] Erro ao criar compra:', {
+    console.error('[Arkama] ❌ Erro ao criar compra:', {
       message: error.message,
+      code: error.code,
       status: error.response?.status,
       statusText: error.response?.statusText,
       data: error.response?.data,
+      stack: error.stack,
     })
+    
+    // Se for erro de conexão/timeout
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND') {
+      return {
+        success: false,
+        error: 'Não foi possível conectar ao gateway de pagamento',
+        details: {
+          code: error.code,
+          message: error.message,
+        },
+        status: 503,
+      }
+    }
     
     // Retornar erro mais detalhado
     const errorMessage = error.response?.data?.message || 
                         error.response?.data?.error || 
-                        error.message
+                        error.message ||
+                        'Erro desconhecido ao criar pagamento'
     
     return {
       success: false,
       error: errorMessage,
-      details: error.response?.data,
-      status: error.response?.status,
+      details: error.response?.data || { message: error.message },
+      status: error.response?.status || 500,
     }
   }
 }
