@@ -23,7 +23,7 @@ export const createDeposit = async (req, res) => {
     }
 
     const userId = req.user.id
-    const { amount, description, gateway = 'cartwavehub' } = req.body // Default para cartwavehub
+    const { amount, description, gateway } = req.body
 
     console.log('[PaymentController] ==========================================')
     console.log('[PaymentController] Dados recebidos do frontend:', {
@@ -94,7 +94,8 @@ export const createDeposit = async (req, res) => {
                     '0.0.0.0'
 
     // Escolher gateway (cartwavehub ou arkama)
-    const selectedGateway = (gateway || 'cartwavehub').toLowerCase().trim()
+    // Usar finalGateway que já foi validado acima
+    const selectedGateway = finalGateway
     
     console.log('[PaymentController] ==========================================')
     console.log('[PaymentController] Gateway selecionado:', selectedGateway)
