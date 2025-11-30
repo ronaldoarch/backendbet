@@ -84,12 +84,23 @@ export const createDeposit = async (req, res) => {
 
     // Criar compra na Arkama
     console.log('[PaymentController] Chamando Arkama API...')
-    const arkamaResponse = await arkamaService.createOrder({
-      amount: parseFloat(amount).toFixed(2),
+    console.log('[PaymentController] Dados enviados:', {
+      amount: finalAmount.toFixed(2),
       user_email: user.email,
       user_name: user.name || user.email,
       user_phone: user.phone || null,
-      description: description || `Depósito de R$ ${amount.toFixed(2)}`,
+      description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
+      callback_url: `${baseUrl}/api/payments/arkama-webhook`,
+      return_url: `${baseUrl}/wallet?payment=success`,
+      ip: clientIp,
+    })
+    
+    const arkamaResponse = await arkamaService.createOrder({
+      amount: finalAmount.toFixed(2),
+      user_email: user.email,
+      user_name: user.name || user.email,
+      user_phone: user.phone || null,
+      description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
       callback_url: `${baseUrl}/api/payments/arkama-webhook`,
       return_url: `${baseUrl}/wallet?payment=success`,
       ip: clientIp,
@@ -154,13 +165,14 @@ export const createDeposit = async (req, res) => {
       if (arkamaResponse.status === 500) {
         console.error('[PaymentController] ⚠️ Erro 500 da Arkama - Gateway temporariamente indisponível')
         console.error('[PaymentController] Erro real extraído:', realError)
+        console.error('[PaymentController] Detalhes completos do erro:', JSON.stringify(arkamaResponse, null, 2))
         
         // Se o erro real for sobre pagamento PIX, pode ser problema nos dados
-        if (realError.includes('pix payment') || realError.includes('PIX')) {
+        if (realError && (realError.includes('pix payment') || realError.includes('PIX'))) {
           return res.status(400).json({
             error: 'Erro ao processar pagamento PIX',
-            message: 'Não foi possível processar o pagamento PIX. Verifique os dados e tente novamente.',
-            details: realError,
+            message: realError || 'Não foi possível processar o pagamento PIX. Verifique os dados e tente novamente.',
+            details: arkamaResponse.details || realError,
             status: false,
           })
         }
@@ -169,6 +181,24 @@ export const createDeposit = async (req, res) => {
           error: 'Serviço temporariamente indisponível',
           message: 'O gateway de pagamento está temporariamente indisponível. Por favor, tente novamente em alguns instantes.',
           details: realError || 'Erro interno do servidor do gateway de pagamento',
+          status: false,
+        })
+      }
+      
+      // Erro 400 do servidor Arkama (dados inválidos)
+      if (arkamaResponse.status === 400) {
+        console.error('[PaymentController] ⚠️ Erro 400 da Arkama - Dados inválidos')
+        console.error('[PaymentController] Detalhes completos do erro:', JSON.stringify(arkamaResponse, null, 2))
+        
+        const errorMessage = arkamaResponse.error || 
+                            arkamaResponse.details?.message ||
+                            realError ||
+                            'Dados inválidos para processar o pagamento'
+        
+        return res.status(400).json({
+          error: 'Erro ao processar pagamento',
+          message: errorMessage,
+          details: arkamaResponse.details || arkamaResponse.error,
           status: false,
         })
       }
