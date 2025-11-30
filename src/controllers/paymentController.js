@@ -141,21 +141,48 @@ export const createDeposit = async (req, res) => {
 
     // Extrair dados do PIX da resposta da Arkama
     // A Arkama pode retornar: qr_code, pix_code, qr_code_base64, pix_copia_cola, etc.
-    const qrCode = orderData.qr_code || 
-                   orderData.qr_code_base64 || 
-                   orderData.qrcode || 
-                   orderData.qrCode ||
-                   orderData.pix?.qr_code ||
-                   orderData.pix?.qr_code_base64 ||
-                   null
+    let qrCode = orderData.qr_code || 
+                 orderData.qr_code_base64 || 
+                 orderData.qrcode || 
+                 orderData.qrCode ||
+                 orderData.pix?.qr_code ||
+                 orderData.pix?.qr_code_base64 ||
+                 null
 
-    const pixCode = orderData.pix_code || 
-                    orderData.pix_copia_cola || 
-                    orderData.pixCode ||
-                    orderData.pix?.pix_copia_cola ||
-                    orderData.pix?.payload ||
-                    orderData.pix?.pix_code ||
-                    null
+    let pixCode = orderData.pix_code || 
+                  orderData.pix_copia_cola || 
+                  orderData.pixCode ||
+                  orderData.pix?.pix_copia_cola ||
+                  orderData.pix?.payload ||
+                  orderData.pix?.pix_code ||
+                  null
+
+    // Se não houver QR code mas houver PIX code, usar o PIX code
+    // Se não houver nenhum dos dois, tentar gerar PIX code a partir dos dados disponíveis
+    if (!qrCode && !pixCode) {
+      // Tentar gerar PIX copia e cola a partir dos dados disponíveis
+      // A Arkama pode retornar dados em diferentes formatos
+      if (orderData.pix) {
+        pixCode = orderData.pix.pix_copia_cola || 
+                  orderData.pix.payload || 
+                  orderData.pix.pix_code ||
+                  null
+      }
+      
+      // Se ainda não tiver, tentar outros campos
+      if (!pixCode) {
+        pixCode = orderData.pix_copia_cola || 
+                  orderData.payload || 
+                  orderData.pix_code ||
+                  null
+      }
+    }
+
+    // Se não houver QR code mas houver PIX code, informar que o QR code não está disponível
+    // mas o PIX copia e cola está disponível
+    if (!qrCode && pixCode) {
+      console.log('[PaymentController] QR code não disponível, mas PIX copia e cola está disponível')
+    }
 
     // Retornar dados de pagamento
     res.json({
@@ -166,7 +193,7 @@ export const createDeposit = async (req, res) => {
       pix_code: pixCode,
       order_id: orderData.id || orderData.order_id,
       status: orderData.status,
-      message: 'Pagamento criado com sucesso.',
+      message: qrCode ? 'Pagamento criado com sucesso.' : 'Pagamento criado. Use o código PIX copia e cola para pagar.',
     })
   } catch (error) {
     console.error('[PaymentController] Erro ao criar depósito:', error)
