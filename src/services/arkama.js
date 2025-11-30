@@ -105,11 +105,14 @@ export const createOrder = async (data) => {
     
     // A API Arkama exige 'value' OU 'total_value', mas não ambos
     // Se enviar 'value', não pode enviar 'total_value'
-    // Tentar ambos os formatos: snake_case e camelCase
+    // A API também exige um objeto 'customer' com informações do cliente
     const requestBody = {
       value: amountValue.toFixed(2), // Campo obrigatório (não enviar total_value quando value está presente)
-      payment_method: 'pix', // snake_case
-      paymentMethod: 'pix', // camelCase (tentar ambos)
+      payment_method: 'pix',
+      customer: {
+        name: data.user_name || data.user_email,
+        email: data.user_email,
+      },
       user_email: data.user_email,
       user_name: data.user_name || data.user_email,
       description: data.description || 'Depósito na plataforma',
