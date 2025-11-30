@@ -6,12 +6,20 @@ import pool from '../config/database.js'
  */
 export const getCartwavehubKeys = async (req, res) => {
   try {
+    console.log('[CartwavehubKeys] ==========================================')
+    console.log('[CartwavehubKeys] Buscando credenciais do banco de dados...')
+    
     // Buscar credenciais da tabela app_settings
     const [settings] = await pool.execute(
       `SELECT setting_key, setting_value 
        FROM app_settings 
        WHERE setting_key IN ('cartwavehub_api_secret', 'cartwavehub_api_public', 'cartwavehub_base_url')`
     )
+
+    console.log('[CartwavehubKeys] Settings encontrados no banco:', settings.length)
+    settings.forEach(s => {
+      console.log(`  ${s.setting_key}: ${s.setting_value ? `${s.setting_value.substring(0, 20)}... (${s.setting_value.length} chars)` : 'NULL'}`)
+    })
 
     const config = {
       cartwavehub_api_secret: '',
@@ -29,13 +37,28 @@ export const getCartwavehubKeys = async (req, res) => {
       }
     })
 
-    res.json({
+    console.log('[CartwavehubKeys] Config montado:', {
+      has_secret: !!config.cartwavehub_api_secret,
+      secret_length: config.cartwavehub_api_secret?.length || 0,
+      has_public: !!config.cartwavehub_api_public,
+      base_url: config.cartwavehub_base_url,
+    })
+
+    const response = {
       ...config,
       has_secret: !!config.cartwavehub_api_secret,
       webhook_url: `${process.env.BASE_URL || 'https://qoo8wgogo4ow4gsg0k0wk4g4.agenciamidas.com'}/api/payments/cartwavehub-webhook`,
-    })
+    }
+    
+    console.log('[CartwavehubKeys] ✅ Retornando credenciais para o frontend')
+    console.log('[CartwavehubKeys] ==========================================')
+    
+    res.json(response)
   } catch (error) {
-    console.error('Erro ao buscar credenciais Cartwavehub:', error)
+    console.error('[CartwavehubKeys] ❌ Erro ao buscar credenciais:', {
+      message: error.message,
+      stack: error.stack,
+    })
     res.status(500).json({
       error: 'Erro ao buscar credenciais',
       status: false,
