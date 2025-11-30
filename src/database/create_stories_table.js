@@ -19,7 +19,7 @@ async function createStoriesTable() {
       CREATE TABLE stories (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
-        image TEXT NULL COMMENT 'Imagem do story (base64 ou URL)',
+        image MEDIUMTEXT NULL COMMENT 'Imagem do story (base64 ou URL)',
         link VARCHAR(500) NULL COMMENT 'Link ao clicar no story',
         color VARCHAR(50) NULL COMMENT 'Cor de fundo (hex)',
         icon VARCHAR(100) NULL COMMENT 'Ícone/emoji do story',
