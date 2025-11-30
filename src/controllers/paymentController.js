@@ -24,17 +24,30 @@ export const createDeposit = async (req, res) => {
     const userId = req.user.id
     const { amount, description, gateway } = req.body
 
+    console.log('[PaymentController] Dados recebidos:', {
+      amount,
+      amountType: typeof amount,
+      description,
+      gateway,
+    })
+
     // Validações
-    if (!amount || amount <= 0) {
+    const amountValue = parseFloat(amount)
+    
+    if (!amount || isNaN(amountValue) || amountValue <= 0) {
+      console.error('[PaymentController] ❌ Valor inválido:', amount)
       return res.status(400).json({
         error: 'Valor inválido',
+        message: 'O valor do depósito deve ser um número maior que zero',
         status: false,
       })
     }
 
-    if (amount < 10) {
+    if (amountValue < 10) {
+      console.error('[PaymentController] ❌ Valor abaixo do mínimo:', amountValue)
       return res.status(400).json({
         error: 'Valor mínimo de depósito é R$ 10,00',
+        message: 'O valor mínimo para depósito é R$ 10,00',
         status: false,
       })
     }
