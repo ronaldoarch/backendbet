@@ -103,13 +103,21 @@ export const createGame = async (req, res) => {
       })
     }
 
-    // Limitar tamanho da imagem base64 (se muito grande, usar apenas URL)
+    // Processar cover: aceitar URL completa ou base64
     let coverValue = cover || null
-    if (coverValue && coverValue.length > 65535) {
-      // Se a imagem base64 for muito grande, tentar extrair URL se houver
-      // ou truncar (não ideal, mas funciona)
-      console.warn('Imagem base64 muito grande, truncando...')
-      coverValue = coverValue.substring(0, 65535)
+    if (coverValue) {
+      // Se for uma URL completa (http/https), usar diretamente
+      if (coverValue.startsWith('http://') || coverValue.startsWith('https://')) {
+        // URL completa - usar como está
+        coverValue = coverValue
+      } 
+      // Se for base64 e muito grande, tentar usar URL se disponível ou truncar
+      else if (coverValue.startsWith('data:image') && coverValue.length > 65535) {
+        console.warn('Imagem base64 muito grande, truncando...')
+        coverValue = coverValue.substring(0, 65535)
+      }
+      // Se for uma URL relativa da PlayFiver, usar como está (será processada no getImageUrl)
+      // Caso contrário, usar como está
     }
     
     // Inserir jogo
@@ -218,6 +226,22 @@ export const updateGame = async (req, res) => {
       })
     }
 
+    // Processar cover: aceitar URL completa ou base64
+    let coverValue = cover !== undefined ? cover : null
+    if (coverValue) {
+      // Se for uma URL completa (http/https), usar diretamente
+      if (coverValue.startsWith('http://') || coverValue.startsWith('https://')) {
+        // URL completa - usar como está
+        coverValue = coverValue
+      } 
+      // Se for base64 e muito grande, tentar usar URL se disponível ou truncar
+      else if (coverValue.startsWith('data:image') && coverValue.length > 65535) {
+        console.warn('Imagem base64 muito grande, truncando...')
+        coverValue = coverValue.substring(0, 65535)
+      }
+      // Caso contrário, usar como está
+    }
+
     // Atualizar jogo
     await pool.execute(
       `UPDATE games SET
@@ -238,7 +262,7 @@ export const updateGame = async (req, res) => {
         game_id,
         game_name,
         game_code,
-        cover || null,
+        coverValue,
         views || 0,
         is_featured || false,
         show_home || false,

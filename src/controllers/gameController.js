@@ -4,6 +4,39 @@ import { playFiverLaunch } from '../services/playfiver.js'
 import crypto from 'crypto'
 
 /**
+ * Função auxiliar para construir URL completa da imagem
+ * Se for uma URL completa (http/https), retorna como está
+ * Se for uma URL relativa da PlayFiver, adiciona o domínio base
+ * Se for base64, retorna como está
+ */
+const getImageUrl = (cover) => {
+  if (!cover) return null
+  
+  // Se já for uma URL completa (http/https), retorna como está
+  if (cover.startsWith('http://') || cover.startsWith('https://')) {
+    return cover
+  }
+  
+  // Se for base64, retorna como está
+  if (cover.startsWith('data:image')) {
+    return cover
+  }
+  
+  // Se for uma URL relativa da PlayFiver (começa com /Games/), adiciona o domínio base
+  if (cover.startsWith('/Games/') || cover.startsWith('Games/')) {
+    return `https://imagensfivers.com/${cover.startsWith('/') ? cover.substring(1) : cover}`
+  }
+  
+  // Se não começar com /, assume que é relativo e adiciona o domínio base
+  if (!cover.startsWith('/')) {
+    return `https://imagensfivers.com/Games/${cover}`
+  }
+  
+  // Caso padrão: retorna como está
+  return cover
+}
+
+/**
  * Gerar hash para cache baseado em parâmetros
  */
 const generateCacheKey = (prefix, params = {}) => {
@@ -56,7 +89,7 @@ export const getAllGames = async (req, res) => {
             id: game.id,
             game_name: game.game_name,
             game_code: game.game_code,
-            cover: game.cover,
+            cover: getImageUrl(game.cover),
             views: game.views,
             is_featured: game.is_featured,
             provider: {
@@ -121,7 +154,7 @@ export const getFeaturedGames = async (req, res) => {
       id: game.id,
       game_name: game.game_name,
       game_code: game.game_code,
-      cover: game.cover,
+      cover: getImageUrl(game.cover),
       views: game.views,
       is_featured: game.is_featured,
       provider: {
@@ -452,7 +485,7 @@ export const getSingleGame = async (req, res) => {
           game_name: game.game_name,
           game_code: game.game_code,
           game_id: game.game_id,
-          cover: game.cover,
+          cover: getImageUrl(game.cover),
           distribution: game.distribution,
           provider: {
             id: game.provider_id,
