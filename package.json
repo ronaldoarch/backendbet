@@ -24,6 +24,7 @@
         "check-table": "node check_table.js",
         "check-tables": "node check_tables.js",
         "create-category-games": "node create_category_games_table.js",
+        "populate-category-games": "node populate_category_games.js",
         "create-app-settings-table": "node src/database/create_app_settings_table.js",
         "create-stories-table": "node src/database/create_stories_table.js",
         "fix-stories-table": "node src/database/fix_stories_table.js",

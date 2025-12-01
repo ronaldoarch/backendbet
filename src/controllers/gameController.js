@@ -9,41 +9,47 @@ import crypto from 'crypto'
  * Se for uma URL relativa da PlayFiver, adiciona o domínio base
  * Se for base64, retorna como está
  */
-const getImageUrl = (cover) => {
+const getImageUrl = (cover, gameCode = null) => {
   try {
-    if (!cover || cover === null || cover === undefined) {
-      return null
+    // Se cover existe e é válido, processar normalmente
+    if (cover && cover !== null && cover !== undefined) {
+      const coverStr = String(cover).trim()
+      
+      if (coverStr !== '' && coverStr !== 'null' && coverStr !== 'undefined') {
+        // Se já for uma URL completa (http/https), retorna como está
+        if (coverStr.startsWith('http://') || coverStr.startsWith('https://')) {
+          return coverStr
+        }
+        
+        // Se for base64, retorna como está
+        if (coverStr.startsWith('data:image')) {
+          return coverStr
+        }
+        
+        // Se for uma URL relativa da PlayFiver (começa com /Games/), adiciona o domínio base
+        if (coverStr.startsWith('/Games/') || coverStr.startsWith('Games/')) {
+          return `https://imagensfivers.com/${coverStr.startsWith('/') ? coverStr.substring(1) : coverStr}`
+        }
+        
+        // Se não começar com /, assume que é relativo e adiciona o domínio base
+        if (!coverStr.startsWith('/')) {
+          return `https://imagensfivers.com/Games/${coverStr}`
+        }
+        
+        // Caso padrão: retorna como está
+        return coverStr
+      }
     }
     
-    // Converter para string se não for
-    const coverStr = String(cover).trim()
-    
-    if (coverStr === '' || coverStr === 'null' || coverStr === 'undefined') {
-      return null
+    // Se cover está vazio/null e temos gameCode, tentar construir URL do PlayFiver
+    if (gameCode && gameCode.trim() !== '') {
+      const code = String(gameCode).trim()
+      // Tentar URL padrão do PlayFiver: https://imagensfivers.com/Games/{gameCode}.jpg
+      return `https://imagensfivers.com/Games/${code}.jpg`
     }
     
-    // Se já for uma URL completa (http/https), retorna como está
-    if (coverStr.startsWith('http://') || coverStr.startsWith('https://')) {
-      return coverStr
-    }
-    
-    // Se for base64, retorna como está
-    if (coverStr.startsWith('data:image')) {
-      return coverStr
-    }
-    
-    // Se for uma URL relativa da PlayFiver (começa com /Games/), adiciona o domínio base
-    if (coverStr.startsWith('/Games/') || coverStr.startsWith('Games/')) {
-      return `https://imagensfivers.com/${coverStr.startsWith('/') ? coverStr.substring(1) : coverStr}`
-    }
-    
-    // Se não começar com /, assume que é relativo e adiciona o domínio base
-    if (!coverStr.startsWith('/')) {
-      return `https://imagensfivers.com/Games/${coverStr}`
-    }
-    
-    // Caso padrão: retorna como está
-    return coverStr
+    // Se não temos nem cover nem gameCode, retornar null
+    return null
   } catch (error) {
     console.warn('[GameController] Erro ao processar URL da imagem:', error)
     return null
@@ -103,7 +109,7 @@ export const getAllGames = async (req, res) => {
             id: game.id,
             game_name: game.game_name,
             game_code: game.game_code,
-            cover: getImageUrl(game.cover),
+            cover: getImageUrl(game.cover, game.game_code),
             views: game.views,
             is_featured: game.is_featured,
             provider: {
@@ -168,7 +174,7 @@ export const getFeaturedGames = async (req, res) => {
       id: game.id,
       game_name: game.game_name,
       game_code: game.game_code,
-      cover: getImageUrl(game.cover),
+      cover: getImageUrl(game.cover, game.game_code),
       views: game.views,
       is_featured: game.is_featured,
       provider: {
@@ -451,7 +457,7 @@ export const getCasinoGames = async (req, res) => {
             id: game.id,
             game_name: game.game_name,
             game_code: game.game_code,
-            cover: getImageUrl(game.cover),
+            cover: getImageUrl(game.cover, game.game_code),
             views: game.views,
             is_featured: game.is_featured,
             provider: {
@@ -467,7 +473,7 @@ export const getCasinoGames = async (req, res) => {
             id: game.id || 0,
             game_name: game.game_name || 'Jogo sem nome',
             game_code: game.game_code || '',
-            cover: getImageUrl(game.cover),
+            cover: getImageUrl(game.cover, game.game_code),
             views: parseInt(game.views || 0),
             is_featured: Boolean(game.is_featured),
             provider: {
@@ -718,7 +724,7 @@ export const getSingleGame = async (req, res) => {
           game_name: game.game_name,
           game_code: game.game_code,
           game_id: game.game_id,
-          cover: getImageUrl(game.cover),
+          cover: getImageUrl(game.cover, game.game_code),
           distribution: game.distribution,
           provider: {
             id: game.provider_id,
@@ -815,7 +821,7 @@ export const getFavorites = async (req, res) => {
       id: game.id,
       game_code: game.game_code,
       game_name: game.game_name,
-      cover: getImageUrl(game.cover),
+      cover: getImageUrl(game.cover, game.game_code),
       provider: game.provider_name || 'Desconhecido',
       category: null,
       type: 'slot',
