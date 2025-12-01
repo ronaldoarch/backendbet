@@ -38,20 +38,18 @@ async function createStoriesTable() {
     const [existing] = await pool.execute('SELECT COUNT(*) as count FROM stories')
     
     if (existing[0].count === 0) {
-      // Inserir dados iniciais (IPHONE, XIAOMI, SEXTOU)
+      // Inserir dados iniciais (IPHONE, XIAOMI, SEXTOU) - image explícito como NULL
       await pool.execute(`
-        INSERT INTO stories (title, color, icon, order_index, status, image) VALUES
-        ('IPHONE', '#ec4899', '📱', 1, 1, NULL),
-        ('XIAOMI', '#16a34a', '📱', 2, 1, NULL),
-        ('SEXTOU', '#ea580c', '▶️', 3, 1, NULL)
+        INSERT INTO stories (title, image, color, icon, order_index, status) VALUES
+        ('IPHONE', NULL, '#ec4899', '📱', 1, 1),
+        ('XIAOMI', NULL, '#16a34a', '📱', 2, 1),
+        ('SEXTOU', NULL, '#ea580c', '▶️', 3, 1)
       `)
       
       console.log('✅ Dados iniciais inseridos!')
     } else {
       console.log('⏭️  Dados iniciais já existem, pulando inserção.')
     }
-    
-    console.log('✅ Dados iniciais inseridos!')
     
   } catch (error) {
     console.error('❌ Erro ao criar tabela:', error.message)
