@@ -26,6 +26,7 @@
         "create-category-games": "node create_category_games_table.js",
         "populate-category-games": "node populate_category_games.js",
         "add-is-admin-field": "node src/database/add_is_admin_field.js",
+        "make-admin": "node make_user_admin.js",
         "create-app-settings-table": "node src/database/create_app_settings_table.js",
         "create-stories-table": "node src/database/create_stories_table.js",
         "fix-stories-table": "node src/database/fix_stories_table.js",
