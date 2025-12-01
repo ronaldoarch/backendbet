@@ -6,13 +6,12 @@ import * as cartwavehubKeysController from '../controllers/cartwavehubKeysContro
 import * as providerController from '../controllers/providerController.js'
 import * as bannerController from '../controllers/bannerController.js'
 import * as adminStoryController from '../controllers/adminStoryController.js'
-// import { authenticateToken } from '../middleware/auth.js'
+import { requireAdmin } from '../middleware/adminAuth.js'
 
 const router = express.Router()
 
-// Autenticação desabilitada temporariamente para desenvolvimento
-// TODO: Habilitar autenticação em produção
-// router.use(authenticateToken)
+// Proteger TODAS as rotas de admin - apenas usuários com is_admin = 1 podem acessar
+router.use(requireAdmin)
 
 router.get('/games', adminGameController.getAllGames)
 router.post('/games', adminGameController.createGame)
