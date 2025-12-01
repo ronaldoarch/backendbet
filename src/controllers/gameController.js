@@ -397,9 +397,11 @@ export const getCasinoGames = async (req, res) => {
       total = 0
     }
 
-    // Paginação
-    query += ' LIMIT ? OFFSET ?'
-    params.push(perPage, offset)
+    // Paginação - MySQL2 não aceita placeholders em LIMIT/OFFSET, usar valores diretamente
+    // Garantir que são números inteiros e seguros
+    const safeLimit = Math.max(1, Math.min(parseInt(perPage) || 12, 100)) // Máximo 100 por página
+    const safeOffset = Math.max(0, parseInt(offset) || 0)
+    query += ` LIMIT ${safeLimit} OFFSET ${safeOffset}`
 
     console.log('[GameController] Executando query final:', query.substring(0, 200))
     console.log('[GameController] Parâmetros finais:', params)
