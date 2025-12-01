@@ -61,11 +61,11 @@ export const createDeposit = async (req, res) => {
       })
     }
 
-    if (amountValue < 10) {
+    if (amountValue < 1) {
       console.error('[PaymentController] ❌ Valor abaixo do mínimo:', amountValue)
       return res.status(400).json({
-        error: 'Valor mínimo de depósito é R$ 10,00',
-        message: 'O valor mínimo para depósito é R$ 10,00',
+        error: 'Valor mínimo de depósito é R$ 1,00',
+        message: 'O valor mínimo para depósito é R$ 1,00',
         status: false,
       })
     }
