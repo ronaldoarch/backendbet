@@ -18,25 +18,32 @@ const getImageUrl = (cover, gameCode = null) => {
       if (coverStr !== '' && coverStr !== 'null' && coverStr !== 'undefined') {
         // Se já for uma URL completa (http/https), retorna como está
         if (coverStr.startsWith('http://') || coverStr.startsWith('https://')) {
+          console.log(`[getImageUrl] URL completa encontrada: ${coverStr.substring(0, 50)}...`)
           return coverStr
         }
         
         // Se for base64, retorna como está
         if (coverStr.startsWith('data:image')) {
+          console.log(`[getImageUrl] Base64 encontrado (tamanho: ${coverStr.length})`)
           return coverStr
         }
         
         // Se for uma URL relativa da PlayFiver (começa com /Games/), adiciona o domínio base
         if (coverStr.startsWith('/Games/') || coverStr.startsWith('Games/')) {
-          return `https://imagensfivers.com/${coverStr.startsWith('/') ? coverStr.substring(1) : coverStr}`
+          const url = `https://imagensfivers.com/${coverStr.startsWith('/') ? coverStr.substring(1) : coverStr}`
+          console.log(`[getImageUrl] URL relativa convertida: ${url}`)
+          return url
         }
         
         // Se não começar com /, assume que é relativo e adiciona o domínio base
         if (!coverStr.startsWith('/')) {
-          return `https://imagensfivers.com/Games/${coverStr}`
+          const url = `https://imagensfivers.com/Games/${coverStr}`
+          console.log(`[getImageUrl] URL construída a partir do cover: ${url}`)
+          return url
         }
         
         // Caso padrão: retorna como está
+        console.log(`[getImageUrl] Retornando cover como está: ${coverStr.substring(0, 50)}...`)
         return coverStr
       }
     }
@@ -45,10 +52,13 @@ const getImageUrl = (cover, gameCode = null) => {
     if (gameCode && gameCode.trim() !== '') {
       const code = String(gameCode).trim()
       // Tentar URL padrão do PlayFiver: https://imagensfivers.com/Games/{gameCode}.jpg
-      return `https://imagensfivers.com/Games/${code}.jpg`
+      const url = `https://imagensfivers.com/Games/${code}.jpg`
+      console.log(`[getImageUrl] Construindo URL do PlayFiver a partir do game_code: ${url}`)
+      return url
     }
     
     // Se não temos nem cover nem gameCode, retornar null
+    console.warn(`[getImageUrl] Nenhuma URL pode ser construída (cover: ${cover}, gameCode: ${gameCode})`)
     return null
   } catch (error) {
     console.warn('[GameController] Erro ao processar URL da imagem:', error)
@@ -453,11 +463,14 @@ export const getCasinoGames = async (req, res) => {
             [game.id]
           )
 
+          const imageUrl = getImageUrl(game.cover, game.game_code)
+          console.log(`[GameController] Jogo ${game.id} (${game.game_name}): cover original = ${game.cover}, game_code = ${game.game_code}, imageUrl = ${imageUrl}`)
+          
           return {
             id: game.id,
             game_name: game.game_name,
             game_code: game.game_code,
-            cover: getImageUrl(game.cover, game.game_code),
+            cover: imageUrl,
             views: game.views,
             is_featured: game.is_featured,
             provider: {
