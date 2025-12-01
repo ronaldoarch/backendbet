@@ -10,30 +10,44 @@ import crypto from 'crypto'
  * Se for base64, retorna como está
  */
 const getImageUrl = (cover) => {
-  if (!cover) return null
-  
-  // Se já for uma URL completa (http/https), retorna como está
-  if (cover.startsWith('http://') || cover.startsWith('https://')) {
-    return cover
+  try {
+    if (!cover || cover === null || cover === undefined) {
+      return null
+    }
+    
+    // Converter para string se não for
+    const coverStr = String(cover).trim()
+    
+    if (coverStr === '' || coverStr === 'null' || coverStr === 'undefined') {
+      return null
+    }
+    
+    // Se já for uma URL completa (http/https), retorna como está
+    if (coverStr.startsWith('http://') || coverStr.startsWith('https://')) {
+      return coverStr
+    }
+    
+    // Se for base64, retorna como está
+    if (coverStr.startsWith('data:image')) {
+      return coverStr
+    }
+    
+    // Se for uma URL relativa da PlayFiver (começa com /Games/), adiciona o domínio base
+    if (coverStr.startsWith('/Games/') || coverStr.startsWith('Games/')) {
+      return `https://imagensfivers.com/${coverStr.startsWith('/') ? coverStr.substring(1) : coverStr}`
+    }
+    
+    // Se não começar com /, assume que é relativo e adiciona o domínio base
+    if (!coverStr.startsWith('/')) {
+      return `https://imagensfivers.com/Games/${coverStr}`
+    }
+    
+    // Caso padrão: retorna como está
+    return coverStr
+  } catch (error) {
+    console.warn('[GameController] Erro ao processar URL da imagem:', error)
+    return null
   }
-  
-  // Se for base64, retorna como está
-  if (cover.startsWith('data:image')) {
-    return cover
-  }
-  
-  // Se for uma URL relativa da PlayFiver (começa com /Games/), adiciona o domínio base
-  if (cover.startsWith('/Games/') || cover.startsWith('Games/')) {
-    return `https://imagensfivers.com/${cover.startsWith('/') ? cover.substring(1) : cover}`
-  }
-  
-  // Se não começar com /, assume que é relativo e adiciona o domínio base
-  if (!cover.startsWith('/')) {
-    return `https://imagensfivers.com/Games/${cover}`
-  }
-  
-  // Caso padrão: retorna como está
-  return cover
 }
 
 /**
@@ -187,25 +201,48 @@ export const getFeaturedGames = async (req, res) => {
  */
 export const getCasinoGames = async (req, res) => {
   try {
+    console.log('[GameController] ==========================================')
+    console.log('[GameController] getCasinoGames chamado')
+    console.log('[GameController] Query params:', req.query)
+    console.log('[GameController] Headers:', {
+      authorization: req.headers.authorization ? 'Presente' : 'Ausente',
+      origin: req.headers.origin,
+    })
+    
     const { provider, category, searchTerm, page = 1, per_page = 12 } = req.query
     const perPage = parseInt(per_page) || 12
     const offset = (parseInt(page) - 1) * perPage
+    
+    console.log('[GameController] Parâmetros processados:', {
+      provider,
+      category,
+      searchTerm,
+      page,
+      per_page: perPage,
+      offset,
+    })
 
     const cacheKey = generateCacheKey('games.all', { provider, category, searchTerm, page })
-    const cached = await cache.get(cacheKey)
     
-    if (cached) {
-      return res.json(cached)
+    try {
+      const cached = await cache.get(cacheKey)
+      if (cached) {
+        return res.json(cached)
+      }
+    } catch (cacheError) {
+      console.warn('[GameController] Erro ao buscar cache, continuando com query direta:', cacheError.message)
     }
 
     let query = `
       SELECT g.id, g.game_name, g.game_code, g.cover, g.views, g.is_featured,
              p.id as provider_id, p.name as provider_name, p.code as provider_code
       FROM games g
-      JOIN providers p ON g.provider_id = p.id
-      WHERE g.status = 1
+      INNER JOIN providers p ON g.provider_id = p.id
+      WHERE g.status = 1 AND p.status = 1
     `
     const params = []
+    
+    console.log('[GameController] Query base criada')
 
     // Filtro por provedor (pode ser ID ou nome)
     if (provider && provider !== 'all' && provider !== 'todos') {
@@ -221,16 +258,46 @@ export const getCasinoGames = async (req, res) => {
     }
 
     // Filtro por categoria
-    if (category && category !== 'all') {
-      query += `
-        AND g.id IN (
-          SELECT cg.game_id
-          FROM category_games cg
-          JOIN categories c ON cg.category_id = c.id
-          WHERE c.slug = ?
+    let categoryExists = true
+    if (category && category !== 'all' && category !== 'todos') {
+      // Verificar se a categoria existe
+      try {
+        const [categoryCheck] = await pool.execute(
+          'SELECT id, name, slug FROM categories WHERE slug = ?',
+          [category]
         )
-      `
-      params.push(category)
+        
+        if (categoryCheck.length === 0) {
+          // Categoria não existe, retornar resposta vazia
+          categoryExists = false
+        } else {
+          query += `
+            AND g.id IN (
+              SELECT cg.game_id
+              FROM category_games cg
+              JOIN categories c ON cg.category_id = c.id
+              WHERE c.slug = ?
+            )
+          `
+          params.push(category)
+        }
+      } catch (categoryError) {
+        console.error('[GameController] Erro ao verificar categoria:', categoryError)
+        categoryExists = false
+      }
+    }
+    
+    // Se a categoria não existe, retornar resposta vazia
+    if (!categoryExists) {
+      return res.json({
+        games: {
+          data: [],
+          current_page: parseInt(page),
+          last_page: 0,
+          per_page: perPage,
+          total: 0,
+        },
+      })
     }
 
     // Busca por termo (mínimo 2 caracteres)
@@ -247,48 +314,172 @@ export const getCasinoGames = async (req, res) => {
       query += ' ORDER BY g.views DESC, g.game_name ASC'
     }
 
-    // Contar total
-    const countQuery = query.replace(
-      'SELECT g.id, g.game_name, g.game_code, g.cover, g.views, g.is_featured, p.id as provider_id, p.name as provider_name, p.code as provider_code',
-      'SELECT COUNT(*) as total'
-    )
-    const [countResult] = await pool.execute(countQuery, params)
-    const total = countResult[0].total
+    // Criar query de contagem separada (sem LIMIT e OFFSET)
+    let countQuery = `
+      SELECT COUNT(DISTINCT g.id) as total
+      FROM games g
+      INNER JOIN providers p ON g.provider_id = p.id
+      WHERE g.status = 1 AND p.status = 1
+    `
+    const countParams = []
+    
+    console.log('[GameController] CountQuery base criada')
+    console.log('[GameController] CountQuery inicial:', countQuery)
+
+    // Aplicar os mesmos filtros na query de contagem
+    if (provider && provider !== 'all' && provider !== 'todos') {
+      if (!isNaN(provider)) {
+        countQuery += ' AND g.provider_id = ?'
+        countParams.push(parseInt(provider))
+      } else {
+        countQuery += ' AND (p.name = ? OR p.code = ? OR p.distribution = ?)'
+        countParams.push(provider, provider, provider)
+      }
+    }
+
+    if (category && category !== 'all' && category !== 'todos' && categoryExists) {
+      countQuery += `
+        AND g.id IN (
+          SELECT cg.game_id
+          FROM category_games cg
+          JOIN categories c ON cg.category_id = c.id
+          WHERE c.slug = ?
+        )
+      `
+      countParams.push(category)
+    }
+
+    if (searchTerm && searchTerm.length >= 2) {
+      countQuery += ' AND (g.game_name LIKE ? OR g.game_code LIKE ? OR g.distribution LIKE ? OR p.name LIKE ?)'
+      const searchPattern = `%${searchTerm}%`
+      countParams.push(searchPattern, searchPattern, searchPattern, searchPattern)
+    }
+
+    let total = 0
+    try {
+      console.log('[GameController] Executando countQuery:', countQuery)
+      console.log('[GameController] CountParams:', countParams)
+      const countResultArray = await pool.execute(countQuery, countParams)
+      console.log('[GameController] CountResultArray recebido:', countResultArray)
+      console.log('[GameController] CountResultArray tipo:', typeof countResultArray)
+      console.log('[GameController] CountResultArray é array?', Array.isArray(countResultArray))
+      console.log('[GameController] CountResultArray length:', countResultArray?.length)
+      
+      // mysql2 retorna [rows, fields], então precisamos pegar o primeiro elemento
+      const countResult = Array.isArray(countResultArray) ? countResultArray[0] : countResultArray
+      console.log('[GameController] CountResult (rows):', countResult)
+      console.log('[GameController] CountResult tipo:', typeof countResult)
+      console.log('[GameController] CountResult é array?', Array.isArray(countResult))
+      
+      if (countResult && Array.isArray(countResult) && countResult.length > 0) {
+        // Tentar acessar 'total' ou 'COUNT(*)'
+        const firstRow = countResult[0]
+        console.log('[GameController] FirstRow:', firstRow)
+        total = parseInt(firstRow?.total || firstRow?.['COUNT(*)'] || firstRow?.['COUNT(DISTINCT g.id)'] || 0)
+        console.log('[GameController] Total extraído:', total)
+      } else {
+        console.warn('[GameController] ⚠️ CountResult está vazio ou inválido')
+        total = 0
+      }
+      
+      console.log('[GameController] Total de jogos final:', total)
+    } catch (countError) {
+      console.error('[GameController] ❌ Erro ao contar jogos:', countError)
+      console.error('[GameController] CountQuery:', countQuery)
+      console.error('[GameController] CountParams:', countParams)
+      console.error('[GameController] Erro completo:', {
+        message: countError.message,
+        code: countError.code,
+        sqlState: countError.sqlState,
+        sqlMessage: countError.sqlMessage,
+      })
+      // Se der erro na contagem, continuar com total 0
+      total = 0
+    }
 
     // Paginação
     query += ' LIMIT ? OFFSET ?'
     params.push(perPage, offset)
 
-    const [games] = await pool.execute(query, params)
+    console.log('[GameController] Executando query final:', query.substring(0, 200))
+    console.log('[GameController] Parâmetros finais:', params)
+    
+    let games = []
+    try {
+      [games] = await pool.execute(query, params)
+      console.log('[GameController] Jogos encontrados:', games.length)
+    } catch (queryError) {
+      console.error('[GameController] ❌ Erro ao executar query:', queryError)
+      console.error('[GameController] Erro completo:', {
+        message: queryError.message,
+        code: queryError.code,
+        sqlState: queryError.sqlState,
+        sqlMessage: queryError.sqlMessage,
+      })
+      
+      // Se for erro de tabela não encontrada, retornar resposta vazia
+      if (queryError.code === 'ER_NO_SUCH_TABLE') {
+        return res.json({
+          games: {
+            data: [],
+            current_page: parseInt(page),
+            last_page: 0,
+            per_page: perPage,
+            total: 0,
+          },
+        })
+      }
+      
+      throw queryError
+    }
 
     // Buscar categorias de cada jogo
     const gamesWithCategories = await Promise.all(
       games.map(async (game) => {
-        const [categories] = await pool.execute(
-          `SELECT c.id, c.name, c.slug
-           FROM categories c
-           JOIN category_games cg ON c.id = cg.category_id
-           WHERE cg.game_id = ?`,
-          [game.id]
-        )
+        try {
+          const [categories] = await pool.execute(
+            `SELECT c.id, c.name, c.slug
+             FROM categories c
+             INNER JOIN category_games cg ON c.id = cg.category_id
+             WHERE cg.game_id = ? AND c.status = 1`,
+            [game.id]
+          )
 
-        return {
-          id: game.id,
-          game_name: game.game_name,
-          game_code: game.game_code,
-          cover: game.cover,
-          views: game.views,
-          is_featured: game.is_featured,
-          provider: {
-            id: game.provider_id,
-            name: game.provider_name,
-            code: game.provider_code,
-          },
-          categories: categories,
+          return {
+            id: game.id,
+            game_name: game.game_name,
+            game_code: game.game_code,
+            cover: getImageUrl(game.cover),
+            views: game.views,
+            is_featured: game.is_featured,
+            provider: {
+              id: game.provider_id,
+              name: game.provider_name,
+              code: game.provider_code,
+            },
+            categories: categories || [],
+          }
+        } catch (categoryError) {
+          console.error(`[GameController] Erro ao buscar categorias do jogo ${game.id}:`, categoryError)
+          return {
+            id: game.id || 0,
+            game_name: game.game_name || 'Jogo sem nome',
+            game_code: game.game_code || '',
+            cover: getImageUrl(game.cover),
+            views: parseInt(game.views || 0),
+            is_featured: Boolean(game.is_featured),
+            provider: {
+              id: game.provider_id || 0,
+              name: game.provider_name || 'Desconhecido',
+              code: game.provider_code || '',
+            },
+            categories: [],
+          }
         }
       })
     )
 
+    console.log('[GameController] Montando resposta final...')
     const response = {
       games: {
         data: gamesWithCategories,
@@ -299,14 +490,54 @@ export const getCasinoGames = async (req, res) => {
       },
     }
 
-    await cache.set(cacheKey, response, 600) // 10 minutos
+    console.log('[GameController] Resposta montada:', {
+      total_jogos: gamesWithCategories.length,
+      total_registros: total,
+      pagina_atual: parseInt(page),
+      ultima_pagina: Math.ceil(total / perPage),
+    })
 
+    try {
+      await cache.set(cacheKey, response, 600) // 10 minutos
+      console.log('[GameController] Cache salvo com sucesso')
+    } catch (cacheError) {
+      console.warn('[GameController] Erro ao salvar cache (não crítico):', cacheError.message)
+    }
+
+    console.log('[GameController] ✅ Enviando resposta para o frontend')
     res.json(response)
   } catch (error) {
-    console.error('Erro ao buscar jogos do cassino:', error)
+    console.error('[GameController] ❌ Erro ao buscar jogos do cassino:', error)
+    console.error('[GameController] Erro completo:', {
+      message: error.message,
+      code: error.code,
+      sqlState: error.sqlState,
+      sqlMessage: error.sqlMessage,
+      stack: error.stack,
+    })
+    
+    // Se for erro de tabela não encontrada, retornar resposta vazia em vez de erro 500
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      return res.json({
+        games: {
+          data: [],
+          current_page: parseInt(req.query.page || 1),
+          last_page: 0,
+          per_page: parseInt(req.query.per_page || 12),
+          total: 0,
+        },
+      })
+    }
+    
     res.status(500).json({
       error: 'Erro ao buscar jogos',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno do servidor',
       status: false,
+      details: process.env.NODE_ENV === 'development' ? {
+        code: error.code,
+        sqlState: error.sqlState,
+        sqlMessage: error.sqlMessage,
+      } : undefined,
     })
   }
 }

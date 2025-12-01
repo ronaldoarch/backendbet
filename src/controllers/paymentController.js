@@ -651,28 +651,132 @@ export const getTransactionStatus = async (req, res) => {
  */
 export const getTransactionHistory = async (req, res) => {
   try {
-    const userId = req.user.id
-    const { page = 1, limit = 20 } = req.query
+    console.log('[PaymentController] getTransactionHistory chamado')
+    const userId = req.user?.id
+    
+    if (!userId) {
+      console.error('[PaymentController] Usuário não autenticado')
+      return res.status(401).json({
+        error: 'Usuário não autenticado',
+        status: false,
+      })
+    }
+
+    const { page = 1, limit = 20, type } = req.query
+    console.log('[PaymentController] Parâmetros:', { userId, page, limit, type })
 
     const offset = (parseInt(page) - 1) * parseInt(limit)
 
-    const [transactions] = await pool.execute(
-      `SELECT * FROM transactions 
-       WHERE user_id = ? 
-       ORDER BY created_at DESC 
-       LIMIT ? OFFSET ?`,
-      [userId, parseInt(limit), offset]
-    )
+    // Construir query base
+    let query = `
+      SELECT id, type, amount, status, description, currency, gateway, 
+             metadata, created_at, updated_at
+      FROM transactions 
+      WHERE user_id = ?
+    `
+    const params = [userId]
+    const countParams = [userId]
 
-    const [countResult] = await pool.execute(
-      'SELECT COUNT(*) as total FROM transactions WHERE user_id = ?',
-      [userId]
-    )
+    // Filtro por tipo se fornecido
+    if (type && type !== 'all' && type !== 'todos') {
+      // Mapear 'withdraw' para 'withdrawal' para compatibilidade com banco
+      const dbType = type === 'withdraw' ? 'withdrawal' : type
+      query += ' AND type = ?'
+      params.push(dbType)
+      countParams.push(dbType)
+    }
 
-    const total = countResult[0].total
+    // Ordenação e paginação
+    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    params.push(parseInt(limit), offset)
+
+    console.log('[PaymentController] Executando query:', query.substring(0, 200))
+    console.log('[PaymentController] Parâmetros:', params)
+    
+    const [transactions] = await pool.execute(query, params)
+    console.log('[PaymentController] Transações encontradas:', transactions.length)
+
+    // Contar total (com filtro de tipo se aplicável)
+    let countQuery = 'SELECT COUNT(*) as total FROM transactions WHERE user_id = ?'
+    if (type && type !== 'all' && type !== 'todos') {
+      countQuery += ' AND type = ?'
+    }
+    
+    console.log('[PaymentController] Executando countQuery:', countQuery)
+    console.log('[PaymentController] CountParams:', countParams)
+    
+    const [countResult] = await pool.execute(countQuery, countParams)
+    const total = countResult[0]?.total || 0
+    console.log('[PaymentController] Total de transações:', total)
+
+    // Função auxiliar para descrição padrão (dentro do escopo)
+    const getDefaultDescription = (type) => {
+      switch (type) {
+        case 'deposit':
+          return 'Depósito via PIX'
+        case 'withdraw':
+        case 'withdrawal':
+          return 'Saque via PIX'
+        case 'bet':
+          return 'Aposta em jogo'
+        case 'win':
+          return 'Vitória em jogo'
+        case 'bonus':
+          return 'Bônus creditado'
+        case 'refund':
+          return 'Reembolso'
+        default:
+          return 'Transação'
+      }
+    }
+
+    // Função para mapear status do banco para o formato do frontend
+    const mapStatus = (status) => {
+      // Mapear 'completed' para 'approved' para compatibilidade com frontend
+      if (status === 'completed') return 'approved'
+      if (status === 'canceled') return 'cancelled'
+      if (status === 'failed') return 'rejected'
+      return status || 'pending'
+    }
+
+    // Função para mapear tipo do banco para o formato do frontend
+    const mapType = (type) => {
+      // Mapear 'withdrawal' para 'withdraw' para compatibilidade com frontend
+      if (type === 'withdrawal') return 'withdraw'
+      return type || 'unknown'
+    }
+
+    // Mapear transações com tratamento de erros
+    const mappedTransactions = transactions.map(tx => {
+      let metadata = null
+      try {
+        if (tx.metadata) {
+          metadata = typeof tx.metadata === 'string' ? JSON.parse(tx.metadata) : tx.metadata
+        }
+      } catch (metadataError) {
+        console.warn(`[PaymentController] Erro ao parsear metadata da transação ${tx.id}:`, metadataError)
+        metadata = null
+      }
+
+      const mappedType = mapType(tx.type)
+      const mappedStatus = mapStatus(tx.status)
+
+      return {
+        id: tx.id,
+        type: mappedType,
+        amount: parseFloat(tx.amount || 0),
+        status: mappedStatus,
+        description: tx.description || getDefaultDescription(mappedType),
+        currency: tx.currency || 'BRL',
+        gateway: tx.gateway || null,
+        metadata: metadata,
+        created_at: tx.created_at,
+        updated_at: tx.updated_at || tx.created_at,
+      }
+    })
 
     res.json({
-      transactions,
+      transactions: mappedTransactions,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -682,11 +786,33 @@ export const getTransactionHistory = async (req, res) => {
       status: true,
     })
   } catch (error) {
-    console.error('[PaymentController] Erro ao buscar histórico:', error)
+    console.error('[PaymentController] ❌ Erro ao buscar histórico:', error)
+    console.error('[PaymentController] Erro completo:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      code: error.code,
+    })
+    
+    // Se for erro de SQL, retornar mensagem mais específica
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      return res.status(500).json({
+        error: 'Tabela de transações não encontrada',
+        message: 'A tabela "transactions" não existe no banco de dados. Execute a migração.',
+        status: false,
+      })
+    }
+    
     res.status(500).json({
       error: 'Erro ao buscar histórico',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno do servidor',
       status: false,
+      details: process.env.NODE_ENV === 'development' ? {
+        code: error.code,
+        name: error.name,
+      } : undefined,
     })
   }
 }
+
 
