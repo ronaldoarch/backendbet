@@ -588,45 +588,8 @@ export const getTransactionStatus = async (req, res) => {
 
     const transaction = transactions[0]
 
-    // Se tiver payment_id, buscar status atualizado na Arkama
-    if (transaction.payment_id && transaction.status === 'pending') {
-      const arkamaResponse = await arkamaService.getOrder(transaction.payment_id)
-      
-      if (arkamaResponse.success) {
-        const orderData = arkamaResponse.data
-        const status = orderData.status?.toLowerCase()
-
-        // Atualizar status se mudou
-        if (status === 'paid' || status === 'approved' || status === 'completed') {
-          // Processar pagamento (mesma lógica do webhook)
-          const [wallets] = await pool.execute(
-            'SELECT * FROM wallets WHERE user_id = ?',
-            [userId]
-          )
-
-          if (wallets && wallets.length > 0 && transaction.status === 'pending') {
-            const wallet = wallets[0]
-            const newBalance = parseFloat(wallet.balance || 0) + parseFloat(transaction.amount)
-
-            await pool.execute(
-              `UPDATE wallets 
-               SET balance = ?, updated_at = NOW()
-               WHERE user_id = ?`,
-              [newBalance, userId]
-            )
-
-            await pool.execute(
-              `UPDATE transactions 
-               SET status = 'completed', updated_at = NOW()
-               WHERE id = ?`,
-              [transaction.id]
-            )
-          }
-        }
-      }
-    }
-
-    // Buscar transação atualizada
+    // Buscar transação atualizada (já atualizada pelo webhook)
+    // Não precisa consultar gateway externo - o webhook já faz isso
     const [updatedTransactions] = await pool.execute(
       'SELECT * FROM transactions WHERE id = ?',
       [transactionId]
@@ -644,6 +607,7 @@ export const getTransactionStatus = async (req, res) => {
     })
   }
 }
+
 
 /**
  * GET /api/payments/history
@@ -688,7 +652,7 @@ export const getTransactionHistory = async (req, res) => {
 
     // Ordenação e paginação
     query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
-    params.push(parseInt(limit), offset)
+    params.push(Number(limit), Number(offset))
 
     console.log('[PaymentController] Executando query:', query.substring(0, 200))
     console.log('[PaymentController] Parâmetros:', params)
