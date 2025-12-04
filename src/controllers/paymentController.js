@@ -629,7 +629,10 @@ export const getTransactionHistory = async (req, res) => {
     const { page = 1, limit = 20, type } = req.query
     console.log('[PaymentController] Parâmetros:', { userId, page, limit, type })
 
-    const offset = (parseInt(page) - 1) * parseInt(limit)
+    // Garantir que são números válidos
+    const pageNum = parseInt(page, 10) || 1
+    const limitNum = parseInt(limit, 10) || 20
+    const offsetNum = (pageNum - 1) * limitNum
 
     // Construir query base
     let query = `
@@ -652,7 +655,7 @@ export const getTransactionHistory = async (req, res) => {
 
     // Ordenação e paginação
     query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
-    params.push(Number(limit), Number(offset))
+    params.push(limitNum, offsetNum)
 
     console.log('[PaymentController] Executando query:', query.substring(0, 200))
     console.log('[PaymentController] Parâmetros:', params)
