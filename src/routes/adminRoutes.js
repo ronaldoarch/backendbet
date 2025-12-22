@@ -3,52 +3,37 @@ import * as adminGameController from '../controllers/adminGameController.js'
 import * as playfiverKeysController from '../controllers/playfiverKeysController.js'
 import * as arkamaKeysController from '../controllers/arkamaKeysController.js'
 import * as cartwavehubKeysController from '../controllers/cartwavehubKeysController.js'
-import * as providerController from '../controllers/providerController.js'
 import * as bannerController from '../controllers/bannerController.js'
+import * as providerController from '../controllers/providerController.js'
+import * as storyController from '../controllers/storyController.js'
 import * as adminStoryController from '../controllers/adminStoryController.js'
-import { requireAdmin } from '../middleware/adminAuth.js'
+import { authenticateAdmin } from '../middleware/adminAuth.js'
 
 const router = express.Router()
 
-// Proteger TODAS as rotas de admin - apenas usuários com is_admin = 1 podem acessar
-router.use(requireAdmin)
+// Todas as rotas administrativas requerem autenticação de admin
+router.use(authenticateAdmin)
 
-router.get('/games', adminGameController.getAllGames)
-router.post('/games', adminGameController.createGame)
-router.put('/games/:id', adminGameController.updateGame)
-router.delete('/games/:id', adminGameController.deleteGame)
+// Rotas de jogos administrativos
+router.get('/games', adminGameController.listAdminGames)
 
-// PlayFiver Keys
-router.get('/playfiver-keys', playfiverKeysController.getPlayfiverKeys)
-router.post('/playfiver-keys', playfiverKeysController.savePlayfiverKeys)
-router.put('/playfiver-keys/info', playfiverKeysController.updatePlayfiverInfo)
+// Rotas de chaves de APIs
+router.get('/keys/playfiver', playfiverKeysController.getKeys)
+router.put('/keys/playfiver', playfiverKeysController.updateKeys)
+router.get('/keys/arkama', arkamaKeysController.getKeys)
+router.put('/keys/arkama', arkamaKeysController.updateKeys)
+router.get('/keys/cartwavehub', cartwavehubKeysController.getKeys)
+router.put('/keys/cartwavehub', cartwavehubKeysController.updateKeys)
 
-// Arkama Keys
-router.get('/arkama-keys', arkamaKeysController.getArkamaKeys)
-router.post('/arkama-keys', arkamaKeysController.saveArkamaKeys)
-
-// Cartwavehub Keys
-router.get('/cartwavehub-keys', cartwavehubKeysController.getCartwavehubKeys)
-router.post('/cartwavehub-keys', cartwavehubKeysController.saveCartwavehubKeys)
-
-// Providers
-router.get('/providers', providerController.getAllProviders)
-router.post('/providers', providerController.createProvider)
-router.put('/providers/:id', providerController.updateProvider)
-router.delete('/providers/:id', providerController.deleteProvider)
-
-// Banners
-router.get('/banners', bannerController.getAllBanners)
-router.get('/banners/:id', bannerController.getBanner)
+// Rotas de banners
+router.get('/banners', bannerController.listBanners)
 router.post('/banners', bannerController.createBanner)
-router.put('/banners/:id', bannerController.updateBanner)
-router.delete('/banners/:id', bannerController.deleteBanner)
 
-// Stories
-router.get('/stories', adminStoryController.getAllStories)
-router.post('/stories', adminStoryController.createStory)
-router.put('/stories/:id', adminStoryController.updateStory)
-router.delete('/stories/:id', adminStoryController.deleteStory)
+// Rotas de provedores
+router.get('/providers', providerController.listProviders)
+router.get('/providers/:id', providerController.getProviderById)
+
+// Rotas de stories
+router.get('/stories', adminStoryController.listAdminStories)
 
 export default router
-
