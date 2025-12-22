@@ -1,11 +1,7 @@
 import jwt from 'jsonwebtoken'
 import pool from '../config/database.js'
 
-/**
- * Middleware para verificar se o usuário está autenticado E é admin
- * Verifica se o usuário tem o campo is_admin = 1 na tabela users
- */
-export const requireAdmin = async (req, res, next) => {
+export const authenticateAdmin = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization']
     const token = authHeader && authHeader.split(' ')[1]
@@ -13,14 +9,14 @@ export const requireAdmin = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({
         error: 'Unauthorized',
-        message: 'Token não fornecido. Faça login para acessar esta área.',
+        message: 'Token não fornecido',
         status: false,
       })
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key')
     
-    // Buscar usuário no banco com verificação de admin
+    // Buscar usuário no banco (MySQL)
     const [users] = await pool.execute(
       'SELECT id, name, email, phone, avatar, banned, is_admin FROM users WHERE id = ?',
       [decoded.userId]
@@ -44,34 +40,27 @@ export const requireAdmin = async (req, res, next) => {
       })
     }
 
-    // Verificar se o usuário é admin
-    // is_admin pode ser 1, true, '1', ou qualquer valor truthy
-    const isAdmin = user.is_admin === 1 || 
-                   user.is_admin === true || 
-                   user.is_admin === '1' ||
-                   String(user.is_admin).toLowerCase() === 'true'
-
-    if (!isAdmin) {
-      console.warn(`[AdminAuth] Tentativa de acesso não autorizado: User ID ${user.id} (${user.email})`)
+    // Verificar se é admin
+    if (!user.is_admin) {
       return res.status(403).json({
         error: 'Forbidden',
-        message: 'Acesso negado. Apenas administradores podem acessar esta área.',
+        message: 'Acesso negado. Apenas administradores podem acessar esta rota.',
         status: false,
       })
     }
 
     req.user = user
+    req.admin = true
     next()
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         error: 'Unauthorized',
-        message: 'Token expirado. Faça login novamente.',
+        message: 'Token expirado',
         status: false,
       })
     }
     
-    console.error('[AdminAuth] Erro ao verificar autenticação:', error)
     return res.status(401).json({
       error: 'Unauthorized',
       message: 'Token inválido',

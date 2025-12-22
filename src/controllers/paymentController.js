@@ -73,20 +73,20 @@ export const createDeposit = async (req, res) => {
     // Usar amountValue nas operações
     const finalAmount = amountValue
 
-    // Buscar usuário (PostgreSQL)
-    const userResult = await pool.query(
-      'SELECT id, email, name, phone FROM users WHERE id = $1',
+    // Buscar usuário (MySQL)
+    const [users] = await pool.execute(
+      'SELECT id, email, name, phone FROM users WHERE id = ?',
       [userId]
     )
 
-    if (!userResult.rows || userResult.rows.length === 0) {
+    if (!users || users.length === 0) {
       return res.status(404).json({
         error: 'Usuário não encontrado',
         status: false,
       })
     }
 
-    const user = userResult.rows[0]
+    const user = users[0]
 
     // URL base do backend
     const baseUrl = process.env.APP_URL || 
@@ -320,13 +320,12 @@ export const createDeposit = async (req, res) => {
 
     const orderData = paymentResponse.data
 
-    // Criar registro de transação pendente (PostgreSQL)
+    // Criar registro de transação pendente (MySQL)
     console.log('[PaymentController] Criando registro de transação...')
-    const result = await pool.query(
+    const [result] = await pool.execute(
       `INSERT INTO transactions 
        (user_id, type, amount, currency, gateway, status, payment_id, description, metadata, created_at, updated_at)
-       VALUES ($1, 'deposit', $2, 'BRL', $3, 'pending', $4, $5, $6, NOW(), NOW())
-       RETURNING id`,
+       VALUES (?, 'deposit', ?, 'BRL', ?, 'pending', ?, ?, ?, NOW(), NOW())`,
       [
         userId,
         finalAmount,
@@ -337,7 +336,7 @@ export const createDeposit = async (req, res) => {
       ]
     )
 
-    const transactionId = result.rows[0].id
+    const transactionId = result.insertId
 
     // Extrair dados do pagamento da resposta do gateway
     console.log(`[PaymentController] Resposta completa do ${selectedGateway}:`, JSON.stringify(orderData, null, 2))
@@ -478,21 +477,21 @@ export const arkamaWebhook = async (req, res) => {
       status: webhookData.status,
     })
 
-    // Buscar transação pelo payment_id (PostgreSQL)
+    // Buscar transação pelo payment_id (MySQL)
     const orderId = webhookData.id || webhookData.order_id
-    const transactionResult = await pool.query(
-      'SELECT * FROM transactions WHERE payment_id = $1',
+    const [transactions] = await pool.execute(
+      'SELECT * FROM transactions WHERE payment_id = ?',
       [orderId]
     )
 
-    if (!transactionResult.rows || transactionResult.rows.length === 0) {
+    if (!transactions || transactions.length === 0) {
       console.warn('[PaymentController] Transação não encontrada:', orderId)
       return res.status(404).json({
         error: 'Transação não encontrada',
       })
     }
 
-    const transaction = transactionResult.rows[0]
+    const transaction = transactions[0]
 
     // Se já foi processada, retornar sucesso
     if (transaction.status === 'completed') {
@@ -506,28 +505,28 @@ export const arkamaWebhook = async (req, res) => {
     const status = webhookData.status?.toLowerCase()
 
     if (status === 'paid' || status === 'approved' || status === 'completed') {
-      // Pagamento aprovado - creditar na carteira (PostgreSQL)
-      const walletResult = await pool.query(
-        'SELECT * FROM wallets WHERE user_id = $1',
+      // Pagamento aprovado - creditar na carteira (MySQL)
+      const [wallets] = await pool.execute(
+        'SELECT * FROM wallets WHERE user_id = ?',
         [transaction.user_id]
       )
 
-      if (walletResult.rows && walletResult.rows.length > 0) {
-        const wallet = walletResult.rows[0]
+      if (wallets && wallets.length > 0) {
+        const wallet = wallets[0]
         const newBalance = parseFloat(wallet.balance || 0) + parseFloat(transaction.amount)
 
-        await pool.query(
+        await pool.execute(
           `UPDATE wallets 
-           SET balance = $1, updated_at = NOW()
-           WHERE user_id = $2`,
+           SET balance = ?, updated_at = NOW()
+           WHERE user_id = ?`,
           [newBalance, transaction.user_id]
         )
 
         // Atualizar transação
-        await pool.query(
+        await pool.execute(
           `UPDATE transactions 
            SET status = 'completed', updated_at = NOW()
-           WHERE id = $1`,
+           WHERE id = ?`,
           [transaction.id]
         )
 
@@ -538,11 +537,11 @@ export const arkamaWebhook = async (req, res) => {
         })
       }
     } else if (status === 'cancelled' || status === 'refunded' || status === 'failed') {
-      // Pagamento cancelado/falhou (PostgreSQL)
-      await pool.query(
+      // Pagamento cancelado/falhou (MySQL)
+      await pool.execute(
         `UPDATE transactions 
          SET status = 'failed', updated_at = NOW()
-         WHERE id = $1`,
+         WHERE id = ?`,
         [transaction.id]
       )
 
@@ -575,29 +574,29 @@ export const getTransactionStatus = async (req, res) => {
     const userId = req.user.id
     const { transactionId } = req.params
 
-    const transactionResult = await pool.query(
-      'SELECT * FROM transactions WHERE id = $1 AND user_id = $2',
+    const [transactions] = await pool.execute(
+      'SELECT * FROM transactions WHERE id = ? AND user_id = ?',
       [transactionId, userId]
     )
 
-    if (!transactionResult.rows || transactionResult.rows.length === 0) {
+    if (!transactions || transactions.length === 0) {
       return res.status(404).json({
         error: 'Transação não encontrada',
         status: false,
       })
     }
 
-    const transaction = transactionResult.rows[0]
+    const transaction = transactions[0]
 
     // Buscar transação atualizada (já atualizada pelo webhook)
-    // Não precisa consultar gateway externo - o webhook já faz isso (PostgreSQL)
-    const updatedResult = await pool.query(
-      'SELECT * FROM transactions WHERE id = $1',
+    // Não precisa consultar gateway externo - o webhook já faz isso (MySQL)
+    const [updatedTransactions] = await pool.execute(
+      'SELECT * FROM transactions WHERE id = ?',
       [transactionId]
     )
 
     res.json({
-      transaction: updatedResult.rows[0],
+      transaction: updatedTransactions[0],
       status: true,
     })
   } catch (error) {
@@ -635,54 +634,46 @@ export const getTransactionHistory = async (req, res) => {
     const limitNum = parseInt(limit, 10) || 20
     const offsetNum = (pageNum - 1) * limitNum
 
-    // Construir query base (PostgreSQL)
+    // Construir query base (MySQL)
     let query = `
       SELECT id, type, amount, status, description, currency, gateway, 
              metadata, created_at, updated_at
       FROM transactions 
-      WHERE user_id = $1
+      WHERE user_id = ?
     `
     const params = [userId]
-    let paramIndex = 1
+    const countParams = [userId]
 
     // Filtro por tipo se fornecido
     if (type && type !== 'all' && type !== 'todos') {
       // Mapear 'withdraw' para 'withdrawal' para compatibilidade com banco
       const dbType = type === 'withdraw' ? 'withdrawal' : type
-      paramIndex++
-      query += ` AND type = $${paramIndex}`
+      query += ' AND type = ?'
       params.push(dbType)
+      countParams.push(dbType)
     }
 
-    // Ordenação e paginação (PostgreSQL)
-    paramIndex++
-    query += ` ORDER BY created_at DESC LIMIT $${paramIndex}`
-    params.push(limitNum)
-    paramIndex++
-    query += ` OFFSET $${paramIndex}`
-    params.push(offsetNum)
+    // Ordenação e paginação (MySQL)
+    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    params.push(limitNum, offsetNum)
 
     console.log('[PaymentController] Executando query:', query.substring(0, 200))
     console.log('[PaymentController] Parâmetros:', params)
     
-    const transactionResult = await pool.query(query, params)
-    const transactions = transactionResult.rows
+    const [transactions] = await pool.execute(query, params)
     console.log('[PaymentController] Transações encontradas:', transactions.length)
 
-    // Contar total (com filtro de tipo se aplicável) - PostgreSQL
-    let countQuery = 'SELECT COUNT(*) as total FROM transactions WHERE user_id = $1'
-    const countParams = [userId]
+    // Contar total (com filtro de tipo se aplicável) - MySQL
+    let countQuery = 'SELECT COUNT(*) as total FROM transactions WHERE user_id = ?'
     if (type && type !== 'all' && type !== 'todos') {
-      const dbType = type === 'withdraw' ? 'withdrawal' : type
-      countQuery += ' AND type = $2'
-      countParams.push(dbType)
+      countQuery += ' AND type = ?'
     }
     
     console.log('[PaymentController] Executando countQuery:', countQuery)
     console.log('[PaymentController] CountParams:', countParams)
     
-    const countResult = await pool.query(countQuery, countParams)
-    const total = parseInt(countResult.rows[0]?.total || 0)
+    const [countResult] = await pool.execute(countQuery, countParams)
+    const total = countResult[0]?.total || 0
     console.log('[PaymentController] Total de transações:', total)
 
     // Função auxiliar para descrição padrão (dentro do escopo)

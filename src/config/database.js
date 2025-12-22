@@ -1,7 +1,7 @@
-// Arquivo de compatibilidade - redireciona para PostgreSQL
+// Arquivo de compatibilidade - redireciona para MySQL
 // Mantido para compatibilidade com código que ainda usa database.js
-import pool from './database.postgres.js'
+import pool from './database.mysql.js'
 
-// Exportar o pool do PostgreSQL
+// Exportar o pool do MySQL
 export default pool
 

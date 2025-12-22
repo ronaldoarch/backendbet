@@ -55,7 +55,7 @@ app.get('/health', async (req, res) => {
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
-      database: 'connected',
+      database: 'connected (MySQL)',
       redis: redisClient && redisClient.isReady ? 'connected' : 'not configured',
     })
   } catch (error) {
@@ -108,7 +108,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`)
   console.log(`📡 Ambiente: ${process.env.NODE_ENV || 'development'}`)
   console.log(`🌐 CORS Origin: ${process.env.CORS_ORIGIN || 'localhost'}`)
-  console.log(`💾 Database: PostgreSQL`)
+    console.log(`💾 Database: MySQL`)
 })
 
 // Graceful shutdown
