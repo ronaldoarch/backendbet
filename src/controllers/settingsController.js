@@ -21,7 +21,10 @@ export const getSettings = async (req, res) => {
     res.json({
       status: true,
       custom: settingsObj,
-      data: settingsObj,
+      data: {
+        custom: settingsObj,
+        ...settingsObj,
+      },
     })
   } catch (error) {
     console.error('Erro ao buscar configurações:', error)
