@@ -30,11 +30,11 @@ router.put('/keys/playfiver', playfiverKeysController.updateKeys)
 router.get('/banners', bannerController.getAllBanners)
 router.post('/banners', bannerController.createBanner)
 
-// Rotas de provedores
-router.get('/providers', providerController.listProviders)
-router.get('/providers/:id', providerController.getProviderById)
+// Rotas de provedores - temporariamente desabilitadas
+// router.get('/providers', providerController.listProviders)
+// router.get('/providers/:id', providerController.getProviderById)
 
-// Rotas de stories
-router.get('/stories', adminStoryController.listAdminStories)
+// Rotas de stories - temporariamente desabilitadas
+// router.get('/stories', adminStoryController.listAdminStories)
 
 export default router
