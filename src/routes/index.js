@@ -6,6 +6,7 @@ import settingsRoutes from './settingsRoutes.js'
 import walletRoutes from './walletRoutes.js'
 import paymentRoutes from './paymentRoutes.js'
 import webhookRoutes from './webhookRoutes.js'
+import bannerRoutes from './bannerRoutes.js'
 import adminRoutes from './adminRoutes.js'
 
 const router = express.Router()
@@ -18,6 +19,7 @@ router.use('/settings', settingsRoutes)
 router.use('/wallet', walletRoutes)
 router.use('/payments', paymentRoutes)
 router.use('/webhooks', webhookRoutes)
+router.use('/banners', bannerRoutes)
 
 // Rotas administrativas
 router.use('/admin', adminRoutes)
