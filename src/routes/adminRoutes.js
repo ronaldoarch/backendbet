@@ -20,10 +20,10 @@ router.get('/games', adminGameController.getAllGames)
 // Rotas de chaves de APIs
 router.get('/keys/playfiver', playfiverKeysController.getKeys)
 router.put('/keys/playfiver', playfiverKeysController.updateKeys)
-router.get('/keys/arkama', arkamaKeysController.getKeys)
-router.put('/keys/arkama', arkamaKeysController.updateKeys)
-router.get('/keys/cartwavehub', cartwavehubKeysController.getKeys)
-router.put('/keys/cartwavehub', cartwavehubKeysController.updateKeys)
+router.get('/keys/arkama', arkamaKeysController.getArkamaKeys)
+router.put('/keys/arkama', arkamaKeysController.saveArkamaKeys)
+router.get('/keys/cartwavehub', cartwavehubKeysController.getCartwavehubKeys)
+router.put('/keys/cartwavehub', cartwavehubKeysController.saveCartwavehubKeys)
 
 // Rotas de banners
 router.get('/banners', bannerController.listBanners)
