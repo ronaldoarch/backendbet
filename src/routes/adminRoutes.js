@@ -15,7 +15,7 @@ const router = express.Router()
 router.use(authenticateAdmin)
 
 // Rotas de jogos administrativos
-router.get('/games', adminGameController.listAdminGames)
+router.get('/games', adminGameController.getAllGames)
 
 // Rotas de chaves de APIs
 router.get('/keys/playfiver', playfiverKeysController.getKeys)
