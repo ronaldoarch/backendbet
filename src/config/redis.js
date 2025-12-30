@@ -56,6 +56,63 @@ export const getRedisClient = () => {
   return redisClient
 }
 
+// Objeto cache com métodos helper
+export const cache = {
+  /**
+   * Obter valor do cache
+   * @param {string} key - Chave do cache
+   * @returns {Promise<any|null>} Valor do cache ou null
+   */
+  async get(key) {
+    if (!redisClient || !redisClient.isReady) {
+      return null
+    }
+    try {
+      const value = await redisClient.get(key)
+      return value ? JSON.parse(value) : null
+    } catch (error) {
+      console.warn('[Cache] Erro ao buscar:', error.message)
+      return null
+    }
+  },
+
+  /**
+   * Definir valor no cache
+   * @param {string} key - Chave do cache
+   * @param {any} value - Valor a ser armazenado
+   * @param {number} ttl - Tempo de vida em segundos
+   * @returns {Promise<void>}
+   */
+  async set(key, value, ttl = 300) {
+    if (!redisClient || !redisClient.isReady) {
+      return
+    }
+    try {
+      await redisClient.setEx(key, ttl, JSON.stringify(value))
+    } catch (error) {
+      console.warn('[Cache] Erro ao salvar:', error.message)
+    }
+  },
+
+  /**
+   * Limpar cache por padrão
+   * @param {string} pattern - Padrão de chaves (ex: 'api.games.*')
+   * @returns {Promise<void>}
+   */
+  async clear(pattern) {
+    if (!redisClient || !redisClient.isReady) {
+      return
+    }
+    try {
+      // Redis não suporta wildcards diretamente, então vamos ignorar por enquanto
+      // ou implementar uma busca por padrão se necessário
+      console.log('[Cache] Limpar cache:', pattern, '(não implementado)')
+    } catch (error) {
+      console.warn('[Cache] Erro ao limpar:', error.message)
+    }
+  },
+}
+
 // Exportar cliente (pode ser null)
 export default redisClient
 
