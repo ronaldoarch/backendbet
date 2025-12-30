@@ -161,9 +161,6 @@ export function getCartwaveAuth() {
   return authInstance
 }
 
-// Exportar função de credenciais
-export { getCartwaveCredentials }
-
 export default {
   getCartwaveAuth,
   getCartwaveCredentials,
