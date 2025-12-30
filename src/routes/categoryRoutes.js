@@ -1,10 +1,11 @@
 import express from 'express'
-import * as categoryController from '../controllers/categoryController.js'
 
 const router = express.Router()
 
-router.get('/', categoryController.getCategories)
+// Rotas de categorias
+router.get('/', (req, res) => {
+  res.json({ message: 'List categories endpoint - implementar' })
+})
 
 export default router
-
 
