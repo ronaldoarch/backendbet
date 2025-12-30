@@ -20,11 +20,12 @@ export const getSettings = async (req, res) => {
     // Retornar formato esperado pelo frontend
     res.json({
       status: true,
-      custom: settingsObj,
-      data: {
+      setting: {
         custom: settingsObj,
         ...settingsObj,
       },
+      custom: settingsObj,
+      data: settingsObj,
     })
   } catch (error) {
     console.error('Erro ao buscar configurações:', error)
