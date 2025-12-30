@@ -16,6 +16,9 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 3001
 
+// Configurar trust proxy para funcionar atrás de proxy reverso (Colify, Nginx, etc)
+app.set('trust proxy', true)
+
 // Middleware de segurança
 app.use(helmet())
 
