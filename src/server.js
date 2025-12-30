@@ -17,7 +17,9 @@ const app = express()
 const PORT = process.env.PORT || 3001
 
 // Configurar trust proxy para funcionar atrás de proxy reverso (Colify, Nginx, etc)
-app.set('trust proxy', true)
+// Usar número específico em vez de true para ser mais seguro
+// 1 = confiar apenas no primeiro proxy (Colify)
+app.set('trust proxy', 1)
 
 // Middleware de segurança
 app.use(helmet())
