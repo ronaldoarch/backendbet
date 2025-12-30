@@ -20,13 +20,14 @@ router.get('/games', adminGameController.getAllGames)
 // Rotas de chaves de APIs
 router.get('/keys/playfiver', playfiverKeysController.getKeys)
 router.put('/keys/playfiver', playfiverKeysController.updateKeys)
-router.get('/keys/arkama', arkamaKeysController.getArkamaKeys)
-router.put('/keys/arkama', arkamaKeysController.saveArkamaKeys)
-router.get('/keys/cartwavehub', cartwavehubKeysController.getCartwavehubKeys)
-router.put('/keys/cartwavehub', cartwavehubKeysController.saveCartwavehubKeys)
+// Rotas dos gateways temporariamente desabilitadas - serão adicionadas depois
+// router.get('/keys/arkama', arkamaKeysController.getArkamaKeys)
+// router.put('/keys/arkama', arkamaKeysController.saveArkamaKeys)
+// router.get('/keys/cartwavehub', cartwavehubKeysController.getCartwavehubKeys)
+// router.put('/keys/cartwavehub', cartwavehubKeysController.saveCartwavehubKeys)
 
 // Rotas de banners
-router.get('/banners', bannerController.listBanners)
+router.get('/banners', bannerController.getAllBanners)
 router.post('/banners', bannerController.createBanner)
 
 // Rotas de provedores
