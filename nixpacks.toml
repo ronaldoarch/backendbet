@@ -1,12 +1,12 @@
-[providers]
-node = "22"
+[variables]
+NODE_VERSION = "22"
 
 [phases.setup]
 nixPkgs = ["nodejs-22_x"]
 
 [phases.install]
 cmds = [
-  "npm ci --production=false"
+  "npm ci"
 ]
 
 [phases.build]
