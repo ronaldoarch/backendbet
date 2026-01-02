@@ -17,6 +17,9 @@ router.use(authenticateAdmin)
 
 // Rotas de jogos administrativos
 router.get('/games', adminGameController.getAllGames)
+router.post('/games', adminGameController.createGame)
+router.put('/games/:id', adminGameController.updateGame)
+router.delete('/games/:id', adminGameController.deleteGame)
 
 // Rotas de chaves de APIs
 router.get('/keys/playfiver', playfiverKeysController.getKeys)
