@@ -20,6 +20,11 @@ router.get('/games', adminGameController.getAllGames)
 // Rotas de chaves de APIs
 router.get('/keys/playfiver', playfiverKeysController.getKeys)
 router.put('/keys/playfiver', playfiverKeysController.updateKeys)
+// Rotas alternativas para compatibilidade com frontend
+router.get('/playfiver-keys', playfiverKeysController.getKeys)
+router.put('/playfiver-keys', playfiverKeysController.updateKeys)
+router.get('/playfiver-keys/info', playfiverKeysController.getInfo)
+router.post('/playfiver-keys/info', playfiverKeysController.updateInfo)
 // Rotas dos gateways temporariamente desabilitadas - serão adicionadas depois
 // router.get('/keys/arkama', arkamaKeysController.getArkamaKeys)
 // router.put('/keys/arkama', arkamaKeysController.saveArkamaKeys)
