@@ -13,5 +13,9 @@ router.post('/logout', authenticateToken, authController.logout)
 router.get('/me', authenticateToken, authController.me)
 router.post('/me', authenticateToken, authController.me)
 
+// Rota de compatibilidade para /profile/wallet
+import * as walletController from '../controllers/walletController.js'
+router.get('/profile/wallet', authenticateToken, walletController.getBalance)
+
 export default router
 

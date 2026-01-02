@@ -1,19 +1,18 @@
 import express from 'express'
+import * as walletController from '../controllers/walletController.js'
+import { authenticateToken } from '../middleware/auth.js'
 
 const router = express.Router()
 
+// Todas as rotas de wallet requerem autenticação
+router.use(authenticateToken)
+
 // Rotas de carteira
-router.get('/balance', (req, res) => {
-  res.json({ message: 'Get balance endpoint - implementar' })
-})
+router.get('/balance', walletController.getBalance)
 
-router.post('/deposit', (req, res) => {
-  res.json({ message: 'Deposit endpoint - implementar' })
-})
-
-router.post('/withdraw', (req, res) => {
-  res.json({ message: 'Withdraw endpoint - implementar' })
-})
+// Rotas de depósito e saque (redirecionam para paymentController)
+router.post('/deposit', walletController.deposit)
+router.post('/withdraw', walletController.withdraw)
 
 export default router
 

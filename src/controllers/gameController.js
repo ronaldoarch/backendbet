@@ -272,30 +272,62 @@ export const getCasinoGames = async (req, res) => {
     // Filtro por categoria
     let categoryExists = true
     if (category && category !== 'all' && category !== 'todos') {
-      // Verificar se a categoria existe
-      try {
-        const [categoryCheck] = await pool.execute(
-          'SELECT id, name, slug FROM categories WHERE slug = ?',
-          [category]
-        )
-        
-        if (categoryCheck.length === 0) {
-          // Categoria não existe, retornar resposta vazia
-          categoryExists = false
-        } else {
-          query += `
-            AND g.id IN (
-              SELECT cg.game_id
-              FROM category_games cg
-              JOIN categories c ON cg.category_id = c.id
-              WHERE c.slug = ?
-            )
-          `
-          params.push(category)
+      // Se category for um número, pode ser ID de categoria ou ID de jogo
+      // Se for número, tratar como ID de categoria primeiro
+      if (!isNaN(category)) {
+        const categoryId = parseInt(category)
+        // Verificar se é ID de categoria
+        try {
+          const [categoryCheck] = await pool.execute(
+            'SELECT id, name, slug FROM categories WHERE id = ?',
+            [categoryId]
+          )
+          
+          if (categoryCheck.length > 0) {
+            // É um ID de categoria válido
+            query += `
+              AND g.id IN (
+                SELECT cg.game_id
+                FROM category_games cg
+                WHERE cg.category_id = ?
+              )
+            `
+            params.push(categoryId)
+          } else {
+            // Não é categoria, pode ser ID de jogo - ignorar filtro de categoria
+            console.log('[GameController] Número não é ID de categoria válido, ignorando filtro')
+            categoryExists = true // Não bloquear, apenas não filtrar por categoria
+          }
+        } catch (categoryError) {
+          console.error('[GameController] Erro ao verificar categoria por ID:', categoryError)
+          categoryExists = true // Não bloquear em caso de erro
         }
-      } catch (categoryError) {
-        console.error('[GameController] Erro ao verificar categoria:', categoryError)
-        categoryExists = false
+      } else {
+        // É um slug de categoria
+        try {
+          const [categoryCheck] = await pool.execute(
+            'SELECT id, name, slug FROM categories WHERE slug = ?',
+            [category]
+          )
+          
+          if (categoryCheck.length === 0) {
+            // Categoria não existe, retornar resposta vazia
+            categoryExists = false
+          } else {
+            query += `
+              AND g.id IN (
+                SELECT cg.game_id
+                FROM category_games cg
+                JOIN categories c ON cg.category_id = c.id
+                WHERE c.slug = ?
+              )
+            `
+            params.push(category)
+          }
+        } catch (categoryError) {
+          console.error('[GameController] Erro ao verificar categoria:', categoryError)
+          categoryExists = false
+        }
       }
     }
     
@@ -350,15 +382,28 @@ export const getCasinoGames = async (req, res) => {
     }
 
     if (category && category !== 'all' && category !== 'todos' && categoryExists) {
-      countQuery += `
-        AND g.id IN (
-          SELECT cg.game_id
-          FROM category_games cg
-          JOIN categories c ON cg.category_id = c.id
-          WHERE c.slug = ?
-        )
-      `
-      countParams.push(category)
+      if (!isNaN(category)) {
+        // É ID de categoria
+        countQuery += `
+          AND g.id IN (
+            SELECT cg.game_id
+            FROM category_games cg
+            WHERE cg.category_id = ?
+          )
+        `
+        countParams.push(parseInt(category))
+      } else {
+        // É slug de categoria
+        countQuery += `
+          AND g.id IN (
+            SELECT cg.game_id
+            FROM category_games cg
+            JOIN categories c ON cg.category_id = c.id
+            WHERE c.slug = ?
+          )
+        `
+        countParams.push(category)
+      }
     }
 
     if (searchTerm && searchTerm.length >= 2) {
