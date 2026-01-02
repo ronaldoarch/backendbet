@@ -1,6 +1,8 @@
 import pool from '../config/database.js'
-import arkamaService from '../services/arkama.js'
-import cartwavehubService from '../services/cartwavehub.js'
+// Gateways desativados - usando apenas SuitPay
+// import arkamaService from '../services/arkama.js'
+// import cartwavehubService from '../services/cartwavehub.js'
+import suitpayService from '../services/suitpay.js'
 
 /**
  * POST /api/payments/deposit
@@ -33,10 +35,8 @@ export const createDeposit = async (req, res) => {
       body_completo: req.body,
     })
     
-    // FORÇAR cartwavehub se gateway não for especificado ou for undefined/null
-    const finalGateway = (gateway && typeof gateway === 'string' && gateway.trim() !== '') 
-      ? gateway.trim().toLowerCase() 
-      : 'cartwavehub'
+    // FORÇAR suitpay - único gateway ativo
+    const finalGateway = 'suitpay'
     
     console.log('[PaymentController] Gateway final após validação:', finalGateway)
     console.log('[PaymentController] ==========================================')
@@ -100,65 +100,32 @@ export const createDeposit = async (req, res) => {
                     req.connection.remoteAddress || 
                     '0.0.0.0'
 
-    // Escolher gateway (cartwavehub ou arkama)
-    // Usar finalGateway que já foi validado acima
-    const selectedGateway = finalGateway
+    // Usar apenas SuitPay
+    const selectedGateway = 'suitpay'
     
     console.log('[PaymentController] ==========================================')
-    console.log('[PaymentController] Gateway selecionado:', selectedGateway)
-    console.log('[PaymentController] Gateway original recebido:', gateway)
+    console.log('[PaymentController] Gateway selecionado: SUITPAY (único ativo)')
     console.log('[PaymentController] ==========================================')
     
-    let paymentResponse = null
+    // Criar transação PIX no SuitPay
+    console.log('[PaymentController] Chamando SuitPay API...')
+    console.log('[PaymentController] Dados enviados:', {
+      amount: finalAmount,
+      user_email: user.email,
+      user_id: userId,
+      description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
+      callback_url: `${baseUrl}/api/payments/suitpay-webhook`,
+      ip: clientIp,
+    })
     
-    if (selectedGateway === 'cartwavehub') {
-      console.log('[PaymentController] ✅ Usando CARTWAVEHUB como gateway')
-      // Criar transação PIX no Cartwavehub
-      console.log('[PaymentController] Chamando Cartwavehub API...')
-      console.log('[PaymentController] Dados enviados:', {
-        amount: finalAmount,
-        user_email: user.email,
-        user_id: userId,
-        description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
-        callback_url: `${baseUrl}/api/payments/cartwavehub-webhook`,
-        ip: clientIp,
-      })
-      
-      paymentResponse = await cartwavehubService.createPixTransaction({
-        amount: finalAmount,
-        user_email: user.email,
-        user_id: userId,
-        description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
-        callback_url: `${baseUrl}/api/payments/cartwavehub-webhook`,
-        ip: clientIp,
-      })
-    } else {
-      // Criar compra na Arkama (fallback)
-      console.log('[PaymentController] ⚠️ Usando ARKAMA como gateway (fallback)')
-      console.log('[PaymentController] Chamando Arkama API...')
-      console.log('[PaymentController] Dados enviados:', {
-        amount: finalAmount.toFixed(2),
-        user_email: user.email,
-        user_name: user.name || user.email,
-        user_phone: user.phone || null,
-        description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
-        callback_url: `${baseUrl}/api/payments/arkama-webhook`,
-        return_url: `${baseUrl}/wallet?payment=success`,
-        ip: clientIp,
-      })
-      
-      paymentResponse = await arkamaService.createOrder({
-        amount: finalAmount.toFixed(2),
-        user_email: user.email,
-        user_name: user.name || user.email,
-        user_phone: user.phone || null,
-        description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
-        callback_url: `${baseUrl}/api/payments/arkama-webhook`,
-        return_url: `${baseUrl}/wallet?payment=success`,
-        ip: clientIp,
-        shipping_address: 'Endereço não informado',
-      })
-    }
+    const paymentResponse = await suitpayService.createPixTransaction({
+      amount: finalAmount,
+      user_email: user.email,
+      user_id: userId,
+      description: description || `Depósito de R$ ${finalAmount.toFixed(2)}`,
+      callback_url: `${baseUrl}/api/payments/suitpay-webhook`,
+      ip: clientIp,
+    })
 
     console.log(`[PaymentController] Resposta do ${selectedGateway}:`, {
       success: paymentResponse.success,
@@ -345,80 +312,33 @@ export const createDeposit = async (req, res) => {
     let qrCode = null
     let pixCode = null
     
-    if (selectedGateway === 'cartwavehub') {
-      // Cartwavehub retorna: id, pix.encodedImage (QR Code base64), pix.payload (PIX Copia e Cola)
-      qrCode = orderData.pix?.encodedImage || orderData.encodedImage || null
-      pixCode = orderData.pix?.payload || orderData.payload || null
-      // Cartwavehub não retorna payment_url, apenas QR code e PIX code
-    } else {
-      // Arkama: buscar payment_url (prioridade - integração normal)
-      paymentUrl = orderData.payment_url || 
-                   orderData.url || 
-                   orderData.link ||
-                   orderData.payment?.url ||
-                   orderData.payment?.link ||
-                   null
-
-      // Buscar PIX copia e cola (opcional - apenas se disponível)
-      pixCode = orderData.pix_copia_cola || 
-                orderData.pix?.pix_copia_cola ||
-                orderData.pix_code ||
-                orderData.pix?.pix_code ||
-                orderData.pix?.payload ||
-                orderData.payload ||
-                null
-    }
+    // SuitPay retorna: id, pix.encodedImage (QR Code base64), pix.payload (PIX Copia e Cola)
+    qrCode = orderData.pix?.encodedImage || orderData.encodedImage || null
+    pixCode = orderData.pix?.payload || orderData.payload || null
 
     // Log do que foi encontrado
-    if (selectedGateway === 'cartwavehub') {
-      if (qrCode) {
-        console.log('[PaymentController] ✅ QR Code encontrado (base64)')
-      } else {
-        console.warn('[PaymentController] ⚠️ QR Code NÃO encontrado na resposta')
-      }
-      
-      if (pixCode) {
-        console.log('[PaymentController] ✅ PIX copia e cola encontrado:', pixCode.substring(0, 50) + '...')
-      } else {
-        console.warn('[PaymentController] ⚠️ PIX copia e cola NÃO encontrado na resposta')
-      }
-      
-      // Para Cartwavehub, QR code ou PIX code são obrigatórios
-      if (!qrCode && !pixCode) {
-        console.error('[PaymentController] ❌ ERRO: QR Code e PIX Code não encontrados na resposta do Cartwavehub')
-        console.error('[PaymentController] Resposta completa:', JSON.stringify(orderData, null, 2))
-        
-        return res.status(500).json({
-          error: 'Erro ao processar pagamento',
-          message: 'Não foi possível obter o QR Code ou código PIX. Tente novamente.',
-          status: false,
-        })
-      }
+    if (qrCode) {
+      console.log('[PaymentController] ✅ QR Code encontrado (base64)')
     } else {
-      // Para Arkama, payment_url é obrigatório
-      if (paymentUrl) {
-        console.log('[PaymentController] ✅ Payment URL encontrado:', paymentUrl)
-      } else {
-        console.warn('[PaymentController] ⚠️ Payment URL NÃO encontrado na resposta')
-      }
+      console.warn('[PaymentController] ⚠️ QR Code NÃO encontrado na resposta')
+    }
+    
+    if (pixCode) {
+      console.log('[PaymentController] ✅ PIX copia e cola encontrado:', pixCode.substring(0, 50) + '...')
+    } else {
+      console.warn('[PaymentController] ⚠️ PIX copia e cola NÃO encontrado na resposta')
+    }
+    
+    // Para SuitPay, QR code ou PIX code são obrigatórios
+    if (!qrCode && !pixCode) {
+      console.error('[PaymentController] ❌ ERRO: QR Code e PIX Code não encontrados na resposta do SuitPay')
+      console.error('[PaymentController] Resposta completa:', JSON.stringify(orderData, null, 2))
       
-      if (pixCode) {
-        console.log('[PaymentController] ✅ PIX copia e cola encontrado:', pixCode.substring(0, 50) + '...')
-      } else {
-        console.log('[PaymentController] ℹ️ PIX copia e cola não disponível (normal para integração sem QR code)')
-      }
-      
-      // Se não houver payment_url, retornar erro
-      if (!paymentUrl) {
-        console.error('[PaymentController] ❌ ERRO: Payment URL não encontrado na resposta da Arkama')
-        console.error('[PaymentController] Resposta completa:', JSON.stringify(orderData, null, 2))
-        
-        return res.status(500).json({
-          error: 'Erro ao processar pagamento',
-          message: 'Não foi possível obter o link de pagamento. Tente novamente.',
-          status: false,
-        })
-      }
+      return res.status(500).json({
+        error: 'Erro ao processar pagamento',
+        message: 'Não foi possível obter o QR Code ou código PIX. Tente novamente.',
+        status: false,
+      })
     }
 
     // Retornar dados de pagamento
@@ -429,13 +349,9 @@ export const createDeposit = async (req, res) => {
       payment_url: paymentUrl,
       pix_code: pixCode,
       qr_code: qrCode,
-      message: selectedGateway === 'cartwavehub'
-        ? (qrCode 
-          ? 'Depósito criado com sucesso. Escaneie o QR Code ou copie o código PIX.'
-          : 'Depósito criado com sucesso. Copie o código PIX para pagar.')
-        : (pixCode 
-          ? 'Depósito criado com sucesso. Use o link de pagamento ou o código PIX copia e cola para pagar.'
-          : 'Depósito criado com sucesso. Use o link de pagamento para concluir.'),
+      message: qrCode 
+        ? 'Depósito criado com sucesso. Escaneie o QR Code ou copie o código PIX.'
+        : 'Depósito criado com sucesso. Copie o código PIX para pagar.',
     }
     
     res.json(response)
@@ -452,8 +368,109 @@ export const createDeposit = async (req, res) => {
 }
 
 /**
+ * POST /api/payments/suitpay-webhook
+ * Webhook para receber notificações do SuitPay
+ */
+export const suitpayWebhook = async (req, res) => {
+  try {
+    // Responder imediatamente para validação de postback
+    res.status(200).json({
+      success: true,
+      message: 'Webhook recebido',
+    })
+
+    const webhookData = req.body
+
+    // Se não houver dados, é apenas uma validação
+    if (!webhookData || Object.keys(webhookData).length === 0) {
+      console.log('[PaymentController] Validação de postback recebida')
+      return
+    }
+
+    console.log('[PaymentController] Webhook SuitPay recebido:', {
+      transaction_id: webhookData.id || webhookData.transaction_id,
+      status: webhookData.status,
+    })
+
+    // Buscar transação pelo payment_id (MySQL)
+    const transactionId = webhookData.id || webhookData.transaction_id
+    const [transactions] = await pool.execute(
+      'SELECT * FROM transactions WHERE payment_id = ?',
+      [transactionId]
+    )
+
+    if (!transactions || transactions.length === 0) {
+      console.warn('[PaymentController] Transação não encontrada:', transactionId)
+      return
+    }
+
+    const transaction = transactions[0]
+
+    // Se já foi processada, retornar sucesso
+    if (transaction.status === 'completed') {
+      return
+    }
+
+    // Processar conforme status
+    const status = webhookData.status?.toLowerCase()
+
+    if (status === 'paid' || status === 'approved' || status === 'completed' || status === 'success') {
+      // Pagamento aprovado - creditar na carteira (MySQL)
+      const [wallets] = await pool.execute(
+        'SELECT * FROM wallets WHERE user_id = ?',
+        [transaction.user_id]
+      )
+
+      if (wallets && wallets.length > 0) {
+        const wallet = wallets[0]
+        const newBalance = parseFloat(wallet.balance || 0) + parseFloat(transaction.amount)
+
+        await pool.execute(
+          `UPDATE wallets 
+           SET balance = ?, updated_at = NOW()
+           WHERE user_id = ?`,
+          [newBalance, transaction.user_id]
+        )
+
+        // Atualizar transação
+        await pool.execute(
+          `UPDATE transactions 
+           SET status = 'completed', updated_at = NOW()
+           WHERE id = ?`,
+          [transaction.id]
+        )
+
+        console.log('[PaymentController] Depósito processado:', {
+          user_id: transaction.user_id,
+          amount: transaction.amount,
+          new_balance: newBalance,
+        })
+      }
+    } else if (status === 'cancelled' || status === 'refunded' || status === 'failed' || status === 'rejected') {
+      // Pagamento cancelado/falhou (MySQL)
+      await pool.execute(
+        `UPDATE transactions 
+         SET status = 'failed', updated_at = NOW()
+         WHERE id = ?`,
+        [transaction.id]
+      )
+
+      console.log('[PaymentController] Depósito cancelado/falhou:', {
+        transaction_id: transaction.id,
+        status,
+      })
+    }
+
+    console.log('[PaymentController] Webhook SuitPay processado com sucesso')
+  } catch (error) {
+    console.error('[PaymentController] Erro ao processar webhook SuitPay:', error)
+    // Já respondemos no início, então não precisa responder novamente
+  }
+}
+
+/**
  * POST /api/payments/arkama-webhook
- * Webhook para receber notificações da Arkama
+ * Webhook para receber notificações da Arkama (DESATIVADO)
  */
 export const arkamaWebhook = async (req, res) => {
   try {
