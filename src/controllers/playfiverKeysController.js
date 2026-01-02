@@ -42,6 +42,13 @@ export const getKeys = async (req, res) => {
 
     const keyData = keys[0]
     
+    // Log para debug
+    console.log('[PlayFiver Keys] Retornando dados do banco:', {
+      id: keyData.id,
+      callback_url: keyData.callback_url,
+      playfiver_code: keyData.playfiver_code,
+    })
+    
     // Retornar dados diretamente (sem wrapper data)
     res.json({
       id: keyData.id,
@@ -136,6 +143,14 @@ export const updateKeys = async (req, res) => {
       limit_enable,
       bonus_enable,
     } = req.body
+
+    // Log para debug
+    console.log('[PlayFiver Keys] Atualizando chaves:', {
+      playfiver_code,
+      callback_url,
+      has_token: !!playfiver_token,
+      has_secret: !!playfiver_secret,
+    })
 
     // Validar campos obrigatórios
     if (!playfiver_code || !playfiver_token || !playfiver_secret) {
