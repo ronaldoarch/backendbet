@@ -23,7 +23,7 @@ export const getProviders = async (req, res) => {
       console.warn('Cache não disponível, usando query direta')
     }
 
-    const [providers] = await Promise.race([
+    const [providersRows] = await Promise.race([
       pool.execute(
         `SELECT id, code, name, cover, status, distribution
          FROM providers
@@ -33,6 +33,7 @@ export const getProviders = async (req, res) => {
       new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 8000))
     ])
 
+    const providers = providersRows || []
     const response = { providers }
     
     // Tentar salvar no cache (sem bloquear)
@@ -57,12 +58,13 @@ export const getProviders = async (req, res) => {
  */
 export const getAllProviders = async (req, res) => {
   try {
-    const [providers] = await pool.execute(
+    const [providersRows] = await pool.execute(
       `SELECT id, code, name, cover, status, distribution, created_at, updated_at
        FROM providers
        ORDER BY name`
     )
 
+    const providers = providersRows || []
     res.json({ providers })
   } catch (error) {
     console.error('Erro ao buscar provedores:', error)
