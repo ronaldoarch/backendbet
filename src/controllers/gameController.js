@@ -18,32 +18,27 @@ const getImageUrl = (cover, gameCode = null) => {
       if (coverStr !== '' && coverStr !== 'null' && coverStr !== 'undefined') {
         // Se já for uma URL completa (http/https), retorna como está
         if (coverStr.startsWith('http://') || coverStr.startsWith('https://')) {
-          console.log(`[getImageUrl] URL completa encontrada: ${coverStr.substring(0, 50)}...`)
           return coverStr
         }
         
         // Se for base64, retorna como está
         if (coverStr.startsWith('data:image')) {
-          console.log(`[getImageUrl] Base64 encontrado (tamanho: ${coverStr.length})`)
           return coverStr
         }
         
         // Se for uma URL relativa da PlayFiver (começa com /Games/), adiciona o domínio base
         if (coverStr.startsWith('/Games/') || coverStr.startsWith('Games/')) {
           const url = `https://imagensfivers.com/${coverStr.startsWith('/') ? coverStr.substring(1) : coverStr}`
-          console.log(`[getImageUrl] URL relativa convertida: ${url}`)
           return url
         }
         
         // Se não começar com /, assume que é relativo e adiciona o domínio base
         if (!coverStr.startsWith('/')) {
           const url = `https://imagensfivers.com/Games/${coverStr}`
-          console.log(`[getImageUrl] URL construída a partir do cover: ${url}`)
           return url
         }
         
         // Caso padrão: retorna como está
-        console.log(`[getImageUrl] Retornando cover como está: ${coverStr.substring(0, 50)}...`)
         return coverStr
       }
     }
@@ -53,12 +48,13 @@ const getImageUrl = (cover, gameCode = null) => {
       const code = String(gameCode).trim()
       // Tentar URL padrão do PlayFiver: https://imagensfivers.com/Games/{gameCode}.jpg
       const url = `https://imagensfivers.com/Games/${code}.jpg`
-      console.log(`[getImageUrl] Construindo URL do PlayFiver a partir do game_code: ${url}`)
       return url
     }
     
-    // Se não temos nem cover nem gameCode, retornar null
-    console.warn(`[getImageUrl] Nenhuma URL pode ser construída (cover: ${cover}, gameCode: ${gameCode})`)
+    // Se não temos nem cover nem gameCode, retornar null (apenas log em desenvolvimento)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[getImageUrl] Nenhuma URL pode ser construída (cover: ${cover}, gameCode: ${gameCode})`)
+    }
     return null
   } catch (error) {
     console.warn('[GameController] Erro ao processar URL da imagem:', error)
