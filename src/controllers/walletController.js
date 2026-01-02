@@ -1,5 +1,4 @@
 import pool from '../config/database.js'
-import { authenticateToken } from '../middleware/auth.js'
 
 /**
  * GET /api/wallet/balance
@@ -17,6 +16,8 @@ export const getBalance = async (req, res) => {
       })
     }
 
+    console.log('[WalletController] Buscando saldo para usuário:', userId)
+
     // Buscar carteira do usuário
     const [wallets] = await pool.execute(
       `SELECT 
@@ -31,6 +32,7 @@ export const getBalance = async (req, res) => {
     )
 
     if (!wallets || wallets.length === 0) {
+      console.log('[WalletController] Carteira não encontrada, criando...')
       // Criar carteira se não existir
       await pool.execute(
         `INSERT INTO wallets (user_id, balance, balance_bonus, balance_withdrawal, created_at, updated_at)
@@ -38,6 +40,7 @@ export const getBalance = async (req, res) => {
         [userId]
       )
 
+      console.log('[WalletController] Carteira criada com saldo zero')
       return res.json({
         status: true,
         wallet: {
@@ -49,13 +52,22 @@ export const getBalance = async (req, res) => {
     }
 
     const wallet = wallets[0]
+    const balance = parseFloat(wallet.balance || 0)
+    const bonusBalance = parseFloat(wallet.balance_bonus || 0)
+    const withdrawalBalance = parseFloat(wallet.balance_withdrawal || 0)
+
+    console.log('[WalletController] Saldo encontrado:', {
+      balance,
+      bonus_balance: bonusBalance,
+      balance_withdrawal: withdrawalBalance,
+    })
 
     res.json({
       status: true,
       wallet: {
-        balance: parseFloat(wallet.balance || 0),
-        balance_bonus: parseFloat(wallet.balance_bonus || 0),
-        balance_withdrawal: parseFloat(wallet.balance_withdrawal || 0),
+        balance,
+        balance_bonus: bonusBalance,
+        balance_withdrawal: withdrawalBalance,
       },
     })
   } catch (error) {
@@ -73,8 +85,6 @@ export const getBalance = async (req, res) => {
  * Criar depósito (redireciona para paymentController)
  */
 export const deposit = async (req, res) => {
-  // Esta função redireciona para o paymentController
-  // Mantida para compatibilidade
   res.status(501).json({
     error: 'Use /api/payments/deposit',
     status: false,
@@ -86,8 +96,6 @@ export const deposit = async (req, res) => {
  * Criar saque (redireciona para paymentController)
  */
 export const withdraw = async (req, res) => {
-  // Esta função redireciona para o paymentController
-  // Mantida para compatibilidade
   res.status(501).json({
     error: 'Use /api/payments/withdraw',
     status: false,
