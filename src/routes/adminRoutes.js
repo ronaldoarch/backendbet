@@ -7,6 +7,7 @@ import * as bannerController from '../controllers/bannerController.js'
 import * as providerController from '../controllers/providerController.js'
 import * as storyController from '../controllers/storyController.js'
 import * as adminStoryController from '../controllers/adminStoryController.js'
+import * as adminUserController from '../controllers/adminUserController.js'
 import { authenticateAdmin } from '../middleware/adminAuth.js'
 
 const router = express.Router()
@@ -41,5 +42,11 @@ router.post('/banners', bannerController.createBanner)
 
 // Rotas de stories - temporariamente desabilitadas
 // router.get('/stories', adminStoryController.listAdminStories)
+
+// Rotas de usuários
+router.get('/users', adminUserController.getAllUsers)
+router.get('/users/:id', adminUserController.getUserById)
+router.put('/users/:id', adminUserController.updateUser)
+router.put('/users/:id/password', adminUserController.updatePassword)
 
 export default router
