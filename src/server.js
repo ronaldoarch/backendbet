@@ -48,9 +48,9 @@ const limiter = rateLimit({
 })
 app.use('/api/', limiter)
 
-// Body parser
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+// Body parser com limite aumentado para upload de imagens (10MB)
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
