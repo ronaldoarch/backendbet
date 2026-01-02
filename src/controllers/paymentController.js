@@ -671,8 +671,9 @@ export const getTransactionHistory = async (req, res) => {
     }
 
     // Ordenação e paginação (MySQL)
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
-    params.push(limitNum, offsetNum)
+    // LIMIT e OFFSET não podem ser placeholders em prepared statements do MySQL
+    // Inserir valores diretamente na query já que são números inteiros calculados internamente
+    query += ` ORDER BY created_at DESC LIMIT ${limitNum} OFFSET ${offsetNum}`
 
     console.log('[PaymentController] Executando query:', query.substring(0, 200))
     console.log('[PaymentController] Parâmetros:', params)
