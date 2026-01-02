@@ -69,6 +69,17 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Erro:', err)
+  
+  // Tratamento específico para PayloadTooLargeError
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({
+      error: 'Arquivo muito grande. O tamanho máximo permitido é 10MB.',
+      status: false,
+      limit: err.limit,
+      length: err.length
+    })
+  }
+  
   res.status(err.status || 500).json({
     error: err.message || 'Erro interno do servidor',
     status: false
