@@ -4,6 +4,7 @@ import settingsRoutes from './settingsRoutes.js'
 import categoryRoutes from './categoryRoutes.js'
 import authRoutes from './authRoutes.js'
 import walletRoutes from './walletRoutes.js'
+import adminRoutes from './adminRoutes.js'
 
 const router = express.Router()
 
@@ -22,6 +23,7 @@ router.use('/settings', settingsRoutes)
 router.use('/categories', categoryRoutes)
 router.use('/auth', authRoutes)
 router.use('/profile', walletRoutes)
+router.use('/admin', adminRoutes)
 
 console.log('✅ Todas as rotas registradas com sucesso')
 
