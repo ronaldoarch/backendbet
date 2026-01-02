@@ -24,8 +24,10 @@ router.put('/keys/playfiver', playfiverKeysController.updateKeys)
 // Rotas alternativas para compatibilidade com frontend
 router.get('/playfiver-keys', playfiverKeysController.getKeys)
 router.put('/playfiver-keys', playfiverKeysController.updateKeys)
+router.post('/playfiver-keys', playfiverKeysController.updateKeys) // POST também suportado
 router.get('/playfiver-keys/info', playfiverKeysController.getInfo)
 router.post('/playfiver-keys/info', playfiverKeysController.updateInfo)
+router.put('/playfiver-keys/info', playfiverKeysController.updateInfo) // PUT também suportado
 // Rotas dos gateways temporariamente desabilitadas - serão adicionadas depois
 // router.get('/keys/arkama', arkamaKeysController.getArkamaKeys)
 // router.put('/keys/arkama', arkamaKeysController.saveArkamaKeys)
