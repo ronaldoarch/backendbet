@@ -16,10 +16,10 @@ export const login = async (req, res) => {
       })
     }
 
-    // Buscar usuário no banco
+    // Buscar usuário no banco (incluindo is_admin)
     console.log('[AuthController] Buscando usuário no banco:', email)
     const [users] = await pool.execute(
-      'SELECT id, name, email, phone, avatar, password, banned FROM users WHERE email = ?',
+      'SELECT id, name, email, phone, avatar, password, banned, is_admin FROM users WHERE email = ?',
       [email]
     )
 
@@ -53,10 +53,14 @@ export const login = async (req, res) => {
       })
     }
 
-    // Gerar token JWT
+    // Gerar token JWT (incluindo is_admin)
     console.log('[AuthController] Senha válida, gerando token...')
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { 
+        userId: user.id, 
+        email: user.email,
+        is_admin: Boolean(user.is_admin) || false
+      },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
     )
@@ -116,9 +120,13 @@ export const register = async (req, res) => {
       [name, email, hashedPassword, phone || null]
     )
 
-    // Gerar token JWT
+    // Gerar token JWT (novos usuários não são admin por padrão)
     const token = jwt.sign(
-      { userId: result.insertId, email },
+      { 
+        userId: result.insertId, 
+        email,
+        is_admin: false
+      },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
     )
@@ -166,10 +174,10 @@ export const me = async (req, res) => {
       })
     }
 
-    // Buscar dados atualizados do usuário
+    // Buscar dados atualizados do usuário (incluindo is_admin)
     console.log('[AuthController] /me: buscando dados do usuário:', req.user.id)
     const [users] = await pool.execute(
-      'SELECT id, name, email, phone, avatar, banned FROM users WHERE id = ?',
+      'SELECT id, name, email, phone, avatar, banned, is_admin FROM users WHERE id = ?',
       [req.user.id]
     )
 
@@ -192,6 +200,7 @@ export const me = async (req, res) => {
         email: user.email,
         phone: user.phone,
         avatar: user.avatar,
+        is_admin: Boolean(user.is_admin) || false,
       },
     })
   } catch (error) {
