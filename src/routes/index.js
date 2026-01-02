@@ -5,6 +5,10 @@ import categoryRoutes from './categoryRoutes.js'
 import authRoutes from './authRoutes.js'
 import walletRoutes from './walletRoutes.js'
 import adminRoutes from './adminRoutes.js'
+import bannerRoutes from './bannerRoutes.js'
+import paymentRoutes from './paymentRoutes.js'
+import providerRoutes from './providerRoutes.js'
+import webhookRoutes from './webhookRoutes.js'
 
 const router = express.Router()
 
@@ -24,6 +28,10 @@ router.use('/categories', categoryRoutes)
 router.use('/auth', authRoutes)
 router.use('/profile', walletRoutes)
 router.use('/admin', adminRoutes)
+router.use('/banners', bannerRoutes)
+router.use('/payments', paymentRoutes)
+router.use('/providers', providerRoutes)
+router.use('/webhooks', webhookRoutes)
 
 console.log('✅ Todas as rotas registradas com sucesso')
 
