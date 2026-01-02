@@ -1,4 +1,9 @@
 import express from 'express'
+import gameRoutes from './gameRoutes.js'
+import settingsRoutes from './settingsRoutes.js'
+import categoryRoutes from './categoryRoutes.js'
+import authRoutes from './authRoutes.js'
+import walletRoutes from './walletRoutes.js'
 
 const router = express.Router()
 
@@ -11,44 +16,13 @@ router.get('/', (req, res) => {
   })
 })
 
-// Importar e usar todas as rotas (usando importação dinâmica com .then())
-Promise.all([
-  import('./gameRoutes.js').catch(() => null),
-  import('./settingsRoutes.js').catch(() => null),
-  import('./categoryRoutes.js').catch(() => null),
-  import('./authRoutes.js').catch(() => null),
-  import('./walletRoutes.js').catch(() => null),
-])
-  .then(([gameRoutes, settingsRoutes, categoryRoutes, authRoutes, walletRoutes]) => {
-    // Rotas de jogos
-    if (gameRoutes) {
-      router.use('/games', gameRoutes.default || gameRoutes)
-    }
-    
-    // Rotas de configurações
-    if (settingsRoutes) {
-      router.use('/settings', settingsRoutes.default || settingsRoutes)
-    }
-    
-    // Rotas de categorias
-    if (categoryRoutes) {
-      router.use('/categories', categoryRoutes.default || categoryRoutes)
-    }
-    
-    // Rotas de autenticação
-    if (authRoutes) {
-      router.use('/auth', authRoutes.default || authRoutes)
-    }
-    
-    // Rotas de carteira
-    if (walletRoutes) {
-      router.use('/profile', walletRoutes.default || walletRoutes)
-    }
-    
-    console.log('✅ Todas as rotas carregadas com sucesso')
-  })
-  .catch((error) => {
-    console.warn('⚠️  Erro ao carregar algumas rotas:', error.message)
-  })
+// Registrar todas as rotas
+router.use('/games', gameRoutes)
+router.use('/settings', settingsRoutes)
+router.use('/categories', categoryRoutes)
+router.use('/auth', authRoutes)
+router.use('/profile', walletRoutes)
+
+console.log('✅ Todas as rotas registradas com sucesso')
 
 export default router
