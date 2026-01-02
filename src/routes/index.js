@@ -8,6 +8,7 @@ import paymentRoutes from './paymentRoutes.js'
 import webhookRoutes from './webhookRoutes.js'
 import bannerRoutes from './bannerRoutes.js'
 import adminRoutes from './adminRoutes.js'
+import * as playfiverWebhookController from '../controllers/playfiverWebhookController.js'
 
 const router = express.Router()
 
@@ -20,6 +21,10 @@ router.use('/wallet', walletRoutes)
 router.use('/payments', paymentRoutes)
 router.use('/webhooks', webhookRoutes)
 router.use('/banners', bannerRoutes)
+
+// Rota direta do PlayFiver webhook (sem prefixo /webhooks)
+router.post('/playfiver/callback', playfiverWebhookController.callback)
+router.get('/playfiver/callback', playfiverWebhookController.callback)
 
 // Rotas administrativas
 router.use('/admin', adminRoutes)
