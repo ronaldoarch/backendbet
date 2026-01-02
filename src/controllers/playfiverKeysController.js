@@ -27,39 +27,33 @@ export const getKeys = async (req, res) => {
     if (!keys || keys.length === 0) {
       // Retornar estrutura vazia se não existir
       return res.json({
-        status: true,
-        data: {
-          id: null,
-          playfiver_code: '',
-          playfiver_token: '',
-          playfiver_secret: '',
-          callback_url: '',
-          rtp: 93.00,
-          limit_amount: 100.00,
-          limit_hours: 1,
-          limit_enable: false,
-          bonus_enable: false,
-        }
+        id: null,
+        playfiver_code: '',
+        playfiver_token: '',
+        playfiver_secret: '',
+        callback_url: '',
+        rtp: 93.00,
+        limit_amount: 100.00,
+        limit_hours: 1,
+        limit_enable: false,
+        bonus_enable: false,
       })
     }
 
     const keyData = keys[0]
     
-    // Não retornar o token e secret completos por segurança (apenas primeiros caracteres)
+    // Retornar dados diretamente (sem wrapper data)
     res.json({
-      status: true,
-      data: {
-        id: keyData.id,
-        playfiver_code: keyData.playfiver_code || '',
-        playfiver_token: keyData.playfiver_token || '',
-        playfiver_secret: keyData.playfiver_secret || '',
-        callback_url: keyData.callback_url || '',
-        rtp: parseFloat(keyData.rtp) || 93.00,
-        limit_amount: parseFloat(keyData.limit_amount) || 100.00,
-        limit_hours: parseInt(keyData.limit_hours) || 1,
-        limit_enable: Boolean(keyData.limit_enable),
-        bonus_enable: Boolean(keyData.bonus_enable),
-      }
+      id: keyData.id,
+      playfiver_code: keyData.playfiver_code || '',
+      playfiver_token: keyData.playfiver_token || '',
+      playfiver_secret: keyData.playfiver_secret || '',
+      callback_url: keyData.callback_url || '',
+      rtp: parseFloat(keyData.rtp) || 93.00,
+      limit_amount: parseFloat(keyData.limit_amount) || 100.00,
+      limit_hours: parseInt(keyData.limit_hours) || 1,
+      limit_enable: Boolean(keyData.limit_enable),
+      bonus_enable: Boolean(keyData.bonus_enable),
     })
   } catch (error) {
     console.error('[PlayFiver Keys] Erro ao buscar configuração:', error)
@@ -94,32 +88,26 @@ export const getInfo = async (req, res) => {
 
     if (!keys || keys.length === 0) {
       return res.json({
-        status: true,
-        data: {
-          playfiver_code: '',
-          callback_url: '',
-          rtp: 93.00,
-          limit_amount: 100.00,
-          limit_hours: 1,
-          limit_enable: false,
-          bonus_enable: false,
-        }
+        playfiver_code: '',
+        callback_url: '',
+        rtp: 93.00,
+        limit_amount: 100.00,
+        limit_hours: 1,
+        limit_enable: false,
+        bonus_enable: false,
       })
     }
 
     const keyData = keys[0]
     
     res.json({
-      status: true,
-      data: {
-        playfiver_code: keyData.playfiver_code || '',
-        callback_url: keyData.callback_url || '',
-        rtp: parseFloat(keyData.rtp) || 93.00,
-        limit_amount: parseFloat(keyData.limit_amount) || 100.00,
-        limit_hours: parseInt(keyData.limit_hours) || 1,
-        limit_enable: Boolean(keyData.limit_enable),
-        bonus_enable: Boolean(keyData.bonus_enable),
-      }
+      playfiver_code: keyData.playfiver_code || '',
+      callback_url: keyData.callback_url || '',
+      rtp: parseFloat(keyData.rtp) || 93.00,
+      limit_amount: parseFloat(keyData.limit_amount) || 100.00,
+      limit_hours: parseInt(keyData.limit_hours) || 1,
+      limit_enable: Boolean(keyData.limit_enable),
+      bonus_enable: Boolean(keyData.bonus_enable),
     })
   } catch (error) {
     console.error('[PlayFiver Keys] Erro ao buscar informações:', error)
