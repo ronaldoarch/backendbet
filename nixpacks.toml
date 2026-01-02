@@ -5,6 +5,8 @@ NODE_VERSION = "22"
 
 [phases.install]
 cmds = [
+  "ls -la /app/ | head -20",
+  "test -f /app/package.json && echo 'package.json encontrado' || echo 'package.json NÃO encontrado'",
   "npm ci"
 ]
 
