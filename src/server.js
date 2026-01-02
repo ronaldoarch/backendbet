@@ -57,23 +57,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-// Importar rotas (com tratamento de erro)
-import('./routes/index.js')
-  .then((routesModule) => {
-    const routes = routesModule.default || routesModule
-    app.use('/api', routes)
-  })
-  .catch((error) => {
-    console.warn('⚠️  Rotas não encontradas, usando rotas básicas:', error.message)
-    // Rotas básicas se o arquivo não existir
-    app.get('/api', (req, res) => {
-      res.json({
-        message: 'API Backend Fortune Vegas',
-        version: '1.0.0',
-        status: 'online'
-      })
-    })
-  })
+// Importar e registrar rotas
+import routes from './routes/index.js'
+app.use('/api', routes)
 
 // Rota 404
 app.use((req, res) => {
