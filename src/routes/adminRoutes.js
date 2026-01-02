@@ -38,9 +38,12 @@ router.put('/playfiver-keys/info', playfiverKeysController.updateInfo) // PUT ta
 router.get('/banners', bannerController.getAllBanners)
 router.post('/banners', bannerController.createBanner)
 
-// Rotas de provedores - temporariamente desabilitadas
-// router.get('/providers', providerController.listProviders)
-// router.get('/providers/:id', providerController.getProviderById)
+// Rotas de provedores
+router.get('/providers', providerController.getAllProviders)
+router.get('/providers/:id', providerController.getProviderById)
+router.post('/providers', providerController.createProvider)
+router.put('/providers/:id', providerController.updateProvider)
+router.delete('/providers/:id', providerController.deleteProvider)
 
 // Rotas de stories - temporariamente desabilitadas
 // router.get('/stories', adminStoryController.listAdminStories)

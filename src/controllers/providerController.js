@@ -137,6 +137,36 @@ export const createProvider = async (req, res) => {
 }
 
 /**
+ * GET /api/admin/providers/:id
+ * Busca um provedor por ID
+ */
+export const getProviderById = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const [providers] = await pool.execute(
+      'SELECT * FROM providers WHERE id = ?',
+      [id]
+    )
+
+    if (!providers || providers.length === 0) {
+      return res.status(404).json({
+        error: 'Provedor não encontrado',
+        status: false,
+      })
+    }
+
+    res.json({ provider: providers[0] })
+  } catch (error) {
+    console.error('Erro ao buscar provedor:', error)
+    res.status(500).json({
+      error: 'Erro ao buscar provedor',
+      status: false,
+    })
+  }
+}
+
+/**
  * PUT /api/admin/providers/:id
  * Atualiza um provedor
  */
