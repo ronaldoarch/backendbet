@@ -9,6 +9,7 @@ router.use(authenticateToken)
 
 // Rotas de carteira
 router.get('/balance', walletController.getBalance)
+router.get('/wallet', walletController.getBalance) // Rota alternativa para compatibilidade
 
 // Rotas de depósito e saque (redirecionam para paymentController)
 router.post('/deposit', walletController.deposit)
