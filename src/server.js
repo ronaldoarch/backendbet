@@ -52,7 +52,7 @@ app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 // Health check
-app.get('/health', async (req, res) => {
+const healthCheckHandler = async (req, res) => {
   try {
     // Testar conexão com banco
     await pool.query('SELECT 1')
@@ -71,7 +71,11 @@ app.get('/health', async (req, res) => {
       error: error.message,
     })
   }
-})
+}
+
+// Health check em /health e /api/health
+app.get('/health', healthCheckHandler)
+app.get('/api/health', healthCheckHandler)
 
 // Rotas da API
 app.use('/api', routes)
