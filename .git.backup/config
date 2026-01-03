@@ -1,0 +1,22 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+	ignorecase = true
+	precomposeunicode = true
+[remote "origin"]
+	url = https://github.com/ronaldoarch/backendbet.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[pull]
+	rebase = false
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+[http]
+	postBuffer = 524288000
+[pack]
+	windowMemory = 256m
+	packSizeLimit = 2g
+[lfs]
+	repositoryformatversion = 0

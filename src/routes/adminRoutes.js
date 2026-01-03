@@ -8,12 +8,17 @@ import * as providerController from '../controllers/providerController.js'
 import * as storyController from '../controllers/storyController.js'
 import * as adminStoryController from '../controllers/adminStoryController.js'
 import * as adminUserController from '../controllers/adminUserController.js'
+import * as adminStatsController from '../controllers/adminStatsController.js'
 import { authenticateAdmin } from '../middleware/adminAuth.js'
 
 const router = express.Router()
 
 // Todas as rotas administrativas requerem autenticação de admin
 router.use(authenticateAdmin)
+
+// Rotas de estatísticas
+router.get('/stats', adminStatsController.getDashboardStats)
+router.get('/dashboard', adminStatsController.getDashboardStats) // Rota alternativa
 
 // Rotas de jogos administrativos
 router.get('/games', adminGameController.getAllGames)
@@ -56,5 +61,6 @@ router.get('/users', adminUserController.getAllUsers)
 router.get('/users/:id', adminUserController.getUserById)
 router.put('/users/:id', adminUserController.updateUser)
 router.put('/users/:id/password', adminUserController.updatePassword)
+router.delete('/users/:id', adminUserController.deleteUser)
 
 export default router

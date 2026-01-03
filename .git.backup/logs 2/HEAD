@@ -1,0 +1,14 @@
+0000000000000000000000000000000000000000 d2b13866b2ab70aa45cfe9bed2893630046b1346 Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765225514 -0300	commit (initial): feat: implementar Nova API Cartwave com autenticação JWT
+d2b13866b2ab70aa45cfe9bed2893630046b1346 d2b13866b2ab70aa45cfe9bed2893630046b1346 Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765225523 -0300	reset: moving to HEAD
+d2b13866b2ab70aa45cfe9bed2893630046b1346 cb4e16ff963cf287b2583297a811b913ef687886 Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765902770 -0300	commit: Add nixpacks.toml for Coolify deployment (Node.js)
+cb4e16ff963cf287b2583297a811b913ef687886 22cef8f2212f1035ede3f37d119f85b8c4d8c960 Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765905327 -0300	commit: Add fortunevegas.site to CORS allowed origins
+22cef8f2212f1035ede3f37d119f85b8c4d8c960 81c1219f78b570b96b4d83eecdb113d2a01f949d Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765905675 -0300	commit: Fix nixpacks.toml - use npm ci instead of npm ci --production
+81c1219f78b570b96b4d83eecdb113d2a01f949d fc79d2925283ac587b3aef0ce3a329aa52a67d13 Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765905844 -0300	commit: Add Dockerfile and fix nixpacks.toml with explicit provider
+fc79d2925283ac587b3aef0ce3a329aa52a67d13 f2b6da9a07b9341aada61d5b876c4d1483106968 Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765905997 -0300	commit: Fix npm install - use npm install if package-lock.json not found
+f2b6da9a07b9341aada61d5b876c4d1483106968 6194fb8b5d3607b7c63d8207c58bd4ca6571f6e8 Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765906125 -0300	commit: Add package-lock.json to repository
+6194fb8b5d3607b7c63d8207c58bd4ca6571f6e8 f74b7b001e53e6b30de4e1c940aae0b9471332f8 Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765906132 -0300	commit: Simplify Dockerfile and nixpacks - package-lock.json now in repo
+f74b7b001e53e6b30de4e1c940aae0b9471332f8 707a68fa830f23cc5eebb510ae15c5be76fef200 Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765906412 -0300	commit: Improve Dockerfile and add .dockerignore
+707a68fa830f23cc5eebb510ae15c5be76fef200 0460639646e992d94505ebcd04d5fb6e3a0508d6 Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765906434 -0300	commit: Add package.json to repository
+0460639646e992d94505ebcd04d5fb6e3a0508d6 f6dcf53181b4f644400dd1ad27bd5dfaa28d72cd Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765906548 -0300	commit: Fix nixpacks.toml - use nodejs_22 instead of nodejs-22_x
+f6dcf53181b4f644400dd1ad27bd5dfaa28d72cd af4ba17f7fed13392c2bc78bb6e35fb9bd54b805 Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765906556 -0300	commit: Simplify nixpacks.toml - let Nixpacks auto-detect Node.js version
+af4ba17f7fed13392c2bc78bb6e35fb9bd54b805 708c9684593b2c3dd734d1874de206651bf4c8e7 Ronaldo dias de sousa <ronaldohunter54@gmail.com> 1765907235 -0300	commit: Add src/routes files to repository

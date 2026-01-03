@@ -1,0 +1,12 @@
+PORT=3001
+APP_URL=http://localhost:3001
+CORS_ORIGIN=http://localhost:3000
+DB_HOST=nozomi.proxy.rlwy.net
+DB_PORT=40823
+DB_USER=root
+DB_PASSWORD=XNtNSnKSwGddVKdrHMcUrGhMUgrvKXSj
+DB_NAME=railway
+DB_SSL=false
+NODE_ENV=development
+APP_ENV=development
+
