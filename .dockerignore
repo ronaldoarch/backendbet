@@ -1,3 +1,6 @@
 node_modules
 .git
+.git.backup
 .env
+*.md
+!README.md
