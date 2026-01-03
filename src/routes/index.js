@@ -33,6 +33,10 @@ router.use('/payments', paymentRoutes)
 router.use('/providers', providerRoutes)
 router.use('/webhooks', webhookRoutes)
 
+// Rota alternativa para compatibilidade: /casinos/games -> /games/casinos
+import * as gameController from './controllers/gameController.js'
+router.get('/casinos/games', gameController.getCasinoGames)
+
 console.log('✅ Todas as rotas registradas com sucesso')
 
 export default router
