@@ -29,7 +29,7 @@ export const getAllUsers = async (req, res) => {
     )
 
     // Mapear para formato esperado pelo frontend
-    const usersWithBalances = users.map((user: any) => ({
+    const usersWithBalances = users.map((user) => ({
       id: user.id,
       name: user.name,
       email: user.email,

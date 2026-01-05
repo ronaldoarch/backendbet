@@ -87,7 +87,7 @@ export const getDashboardStats = async (req, res) => {
     let usersWithThreeDeposits = 0
     let usersWithFourOrMoreDeposits = 0
 
-    depositCountsResult.forEach((row: any) => {
+    depositCountsResult.forEach((row) => {
       const count = row.count
       if (count === 1) usersWithOneDeposit++
       else if (count === 2) usersWithTwoDeposits++
