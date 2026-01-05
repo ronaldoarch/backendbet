@@ -1,6 +1,7 @@
 import pool from '../config/database.js'
 import { cache } from '../config/redis.js'
 import { playFiverLaunch } from '../services/playfiver.js'
+import { launchGame as igamewinLaunch } from '../services/igamewin.js'
 import crypto from 'crypto'
 
 /**
@@ -696,17 +697,40 @@ export const getSingleGame = async (req, res) => {
       new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
     ])
 
-    // Buscar credenciais PlayFiver (com timeout)
-    const [keys] = await Promise.race([
-      pool.execute('SELECT playfiver_token, playfiver_secret, playfiver_code FROM games_keys LIMIT 1'),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
-    ])
+    // Determinar qual provedor usar baseado no provider_code ou distribution
+    const providerCode = (game.provider_code || '').toUpperCase()
+    const distribution = (game.distribution || '').toLowerCase()
+    const isIgamewin = providerCode === 'IGAMEWIN' || distribution === 'igamewin' || distribution.includes('igamewin')
 
-    if (!keys || keys.length === 0 || !keys[0].playfiver_token) {
-      return res.status(500).json({
-        error: 'Credenciais PlayFiver não configuradas',
-        status: false,
-      })
+    // Buscar credenciais do provedor apropriado
+    let keys = null
+    if (isIgamewin) {
+      const [igamewinKeys] = await Promise.race([
+        pool.execute('SELECT igamewin_agent_code, igamewin_agent_token FROM games_keys LIMIT 1'),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
+      ])
+
+      if (!igamewinKeys || igamewinKeys.length === 0 || !igamewinKeys[0].igamewin_agent_code) {
+        return res.status(500).json({
+          error: 'Credenciais iGameWin não configuradas',
+          status: false,
+        })
+      }
+      keys = igamewinKeys[0]
+    } else {
+      // Padrão: PlayFiver
+      const [playfiverKeys] = await Promise.race([
+        pool.execute('SELECT playfiver_token, playfiver_secret, playfiver_code FROM games_keys LIMIT 1'),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 5000))
+      ])
+
+      if (!playfiverKeys || playfiverKeys.length === 0 || !playfiverKeys[0].playfiver_token) {
+        return res.status(500).json({
+          error: 'Credenciais PlayFiver não configuradas',
+          status: false,
+        })
+      }
+      keys = playfiverKeys[0]
     }
 
     // Incrementar views (sem bloquear)
@@ -717,7 +741,7 @@ export const getSingleGame = async (req, res) => {
     // Invalidar cache (sem bloquear)
     cache.clear('api.games.*').catch(() => {})
 
-    // Lançar jogo no PlayFiver
+    // Lançar jogo no provedor apropriado
     try {
       const gameCodeToUse = game.game_id || game.game_code
       
@@ -728,12 +752,14 @@ export const getSingleGame = async (req, res) => {
       console.log('[GameController] game_id (banco):', game.game_id || '(vazio)')
       console.log('[GameController] Código que será enviado:', gameCodeToUse)
       console.log('[GameController] Provedor:', game.provider_name, `(${game.provider_code})`)
+      console.log('[GameController] Distribution:', game.distribution)
+      console.log('[GameController] Usando iGameWin:', isIgamewin)
       console.log('[GameController] Original:', game.original)
       console.log('[GameController] User:', user.email)
       console.log('[GameController] Balance:', balanceToUse)
       console.log('[GameController] ======================================\n')
 
-      if (!gameCodeToUse) {
+      if (!gameCodeToUse && !isIgamewin) {
         return res.status(500).json({
           error: 'Código do jogo não encontrado. O jogo precisa ter game_id ou game_code configurado.',
           status: false,
@@ -741,34 +767,66 @@ export const getSingleGame = async (req, res) => {
         })
       }
 
-      const playfiverResponse = await Promise.race([
-        playFiverLaunch(
-          gameCodeToUse,
-          user.email,
-          balanceToUse, // Usar balanceToUse em vez de totalBalance
-          {
-            ...keys[0],
-            game_original: game.original !== undefined ? game.original : true, // Usar game_original do banco
-          }
-        ),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout ao lançar jogo no PlayFiver (8s)')), 8000)
-        )
-      ])
+      let gameResponse
+      let gameUrl
+      let sessionToken
 
-      console.log('[GameController] Resposta do PlayFiver recebida:', {
-        hasLaunchUrl: !!playfiverResponse.launch_url,
-        status: playfiverResponse.status,
-        msg: playfiverResponse.msg,
-      })
+      if (isIgamewin) {
+        // Usar iGameWin
+        const provider = game.provider_code || 'PRAGMATIC' // Padrão se não especificado
+        const lang = 'pt' // Português
+        
+        console.log('[GameController] Lançando jogo via iGameWin:', { provider, gameCodeToUse, lang })
+        
+        gameResponse = await Promise.race([
+          igamewinLaunch(
+            user.email,
+            provider,
+            gameCodeToUse || null, // null para lobby
+            lang
+          ),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout ao lançar jogo no iGameWin (15s)')), 15000)
+          )
+        ])
 
-      // Conforme documentação: https://api.playfivers.com/docs/api
-      // A resposta contém: { "status": true, "msg": "SUCCESS", "launch_url": "https://games.playfivers.com/launch?token=..." }
-      const gameUrl = playfiverResponse.launch_url
+        console.log('[GameController] Resposta do iGameWin recebida:', {
+          hasLaunchUrl: !!gameResponse.launch_url,
+          status: gameResponse.status,
+        })
+
+        gameUrl = gameResponse.launch_url
+        sessionToken = gameResponse.session_id || gameResponse.token || 'session_token'
+      } else {
+        // Usar PlayFiver (padrão)
+        gameResponse = await Promise.race([
+          playFiverLaunch(
+            gameCodeToUse,
+            user.email,
+            balanceToUse,
+            {
+              ...keys,
+              game_original: game.original !== undefined ? game.original : true,
+            }
+          ),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout ao lançar jogo no PlayFiver (8s)')), 8000)
+          )
+        ])
+
+        console.log('[GameController] Resposta do PlayFiver recebida:', {
+          hasLaunchUrl: !!gameResponse.launch_url,
+          status: gameResponse.status,
+          msg: gameResponse.msg,
+        })
+
+        gameUrl = gameResponse.launch_url
+        sessionToken = gameResponse.session_id || gameResponse.token || 'session_token'
+      }
 
       if (!gameUrl) {
-        const errorMsg = playfiverResponse.msg || 'URL de lançamento não retornada pela PlayFiver'
-        console.error('[GameController] Erro: Sem launch_url na resposta:', playfiverResponse)
+        const errorMsg = gameResponse.msg || gameResponse.detail || `URL de lançamento não retornada pelo ${isIgamewin ? 'iGameWin' : 'PlayFiver'}`
+        console.error('[GameController] Erro: Sem launch_url na resposta:', gameResponse)
         throw new Error(errorMsg)
       }
 
@@ -783,63 +841,66 @@ export const getSingleGame = async (req, res) => {
           provider: {
             id: game.provider_id,
             name: game.provider_name,
+            code: game.provider_code,
           },
           categories: categories,
         },
         gameUrl: gameUrl,
-        token: playfiverResponse.session_id || playfiverResponse.token || 'session_token',
+        token: sessionToken,
       })
-    } catch (playfiverError) {
-      console.error('[GameController] ❌ Erro ao lançar jogo no PlayFiver')
-      console.error('[GameController] Tipo do erro:', playfiverError.constructor.name)
-      console.error('[GameController] Mensagem:', playfiverError.message)
-      console.error('[GameController] Código:', playfiverError.code)
-      console.error('[GameController] Stack:', playfiverError.stack)
+    } catch (providerError) {
+      const providerName = isIgamewin ? 'iGameWin' : 'PlayFiver'
+      console.error(`[GameController] ❌ Erro ao lançar jogo no ${providerName}`)
+      console.error('[GameController] Tipo do erro:', providerError.constructor.name)
+      console.error('[GameController] Mensagem:', providerError.message)
+      console.error('[GameController] Código:', providerError.code)
+      console.error('[GameController] Stack:', providerError.stack)
       
-      if (playfiverError.response) {
+      if (providerError.response) {
         console.error('[GameController] Resposta HTTP:', {
-          status: playfiverError.response.status,
-          statusText: playfiverError.response.statusText,
-          data: playfiverError.response.data,
+          status: providerError.response.status,
+          statusText: providerError.response.statusText,
+          data: providerError.response.data,
         })
       }
       
-          // Verificar tipo de erro e retornar mensagem apropriada
-          let errorMessage = 'Erro ao conectar com o provedor de jogos'
-          let errorDetails = playfiverError.message
-          
-          // Se o erro tem uma resposta da API, usar a mensagem dela
-          if (playfiverError.response && playfiverError.response.data) {
-            const apiError = playfiverError.response.data
-            if (apiError.msg) {
-              errorMessage = apiError.msg
-              errorDetails = apiError.msg
-            } else if (apiError.error) {
-              errorMessage = apiError.error
-              errorDetails = apiError.error
-            } else if (apiError.message) {
-              errorMessage = apiError.message
-              errorDetails = apiError.message
-            }
-          } else if (playfiverError.message.includes('IP') || playfiverError.message.includes('ip') || playfiverError.message.includes('permitido') || playfiverError.message.includes('Não permitido')) {
-            errorMessage = 'IP do servidor não está na whitelist da PlayFiver'
-            errorDetails = 'O IP do servidor precisa estar na whitelist da PlayFiver. Execute: npm run get-ip para descobrir o IP atual e adicione à whitelist.'
-          } else if (playfiverError.message.includes('Credenciais')) {
-            errorMessage = 'Credenciais PlayFiver não configuradas ou inválidas'
-            errorDetails = 'Por favor, configure as credenciais do PlayFiver no painel administrativo (Admin > Chaves PlayFiver).'
-          } else if (playfiverError.message.includes('SSL') || playfiverError.message.includes('TLS') || playfiverError.message.includes('EPROTO')) {
-            errorMessage = 'Erro de conexão SSL com PlayFiver'
-            errorDetails = 'Não foi possível estabelecer uma conexão segura com o servidor PlayFiver. Verifique se as credenciais estão corretas e se o servidor está acessível.'
-          } else if (playfiverError.message.includes('timeout') || playfiverError.message.includes('Timeout')) {
-            errorMessage = 'Timeout ao conectar com PlayFiver'
-            errorDetails = 'O servidor PlayFiver não respondeu a tempo. Tente novamente mais tarde.'
-          }
+      // Verificar tipo de erro e retornar mensagem apropriada
+      let errorMessage = `Erro ao conectar com o provedor de jogos (${providerName})`
+      let errorDetails = providerError.message
+      let action = isIgamewin ? 'configure_igamewin' : 'configure_playfiver'
+      
+      // Se o erro tem uma resposta da API, usar a mensagem dela
+      if (providerError.response && providerError.response.data) {
+        const apiError = providerError.response.data
+        if (apiError.msg) {
+          errorMessage = apiError.msg
+          errorDetails = apiError.msg
+        } else if (apiError.detail) {
+          errorMessage = apiError.detail
+          errorDetails = apiError.detail
+        } else if (apiError.error) {
+          errorMessage = apiError.error
+          errorDetails = apiError.error
+        } else if (apiError.message) {
+          errorMessage = apiError.message
+          errorDetails = apiError.message
+        }
+      } else if (providerError.message.includes('Credenciais') || providerError.message.includes('não configuradas')) {
+        errorMessage = `Credenciais ${providerName} não configuradas ou inválidas`
+        errorDetails = `Por favor, configure as credenciais do ${providerName} no painel administrativo.`
+      } else if (providerError.message.includes('SSL') || providerError.message.includes('TLS') || providerError.message.includes('EPROTO')) {
+        errorMessage = `Erro de conexão SSL com ${providerName}`
+        errorDetails = `Não foi possível estabelecer uma conexão segura com o servidor ${providerName}. Verifique se as credenciais estão corretas e se o servidor está acessível.`
+      } else if (providerError.message.includes('timeout') || providerError.message.includes('Timeout')) {
+        errorMessage = `Timeout ao conectar com ${providerName}`
+        errorDetails = `O servidor ${providerName} não respondeu a tempo. Tente novamente mais tarde.`
+      }
       
       return res.status(500).json({
         error: errorMessage,
         status: false,
         details: errorDetails,
-        action: 'configure_playfiver',
+        action: action,
       })
     }
   } catch (error) {

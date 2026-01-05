@@ -1,6 +1,7 @@
 import express from 'express'
 import * as adminGameController from '../controllers/adminGameController.js'
 import * as playfiverKeysController from '../controllers/playfiverKeysController.js'
+import * as igamewinKeysController from '../controllers/igamewinKeysController.js'
 import * as arkamaKeysController from '../controllers/arkamaKeysController.js'
 import * as cartwavehubKeysController from '../controllers/cartwavehubKeysController.js'
 import * as bannerController from '../controllers/bannerController.js'
@@ -36,6 +37,12 @@ router.post('/playfiver-keys', playfiverKeysController.updateKeys) // POST tamb�
 router.get('/playfiver-keys/info', playfiverKeysController.getInfo)
 router.post('/playfiver-keys/info', playfiverKeysController.updateInfo)
 router.put('/playfiver-keys/info', playfiverKeysController.updateInfo) // PUT também suportado
+
+// Rotas de chaves iGameWin
+router.get('/igamewin-keys', igamewinKeysController.getKeys)
+router.put('/igamewin-keys', igamewinKeysController.updateKeys)
+router.post('/igamewin-keys', igamewinKeysController.updateKeys) // POST também suportado
+router.get('/igamewin-keys/info', igamewinKeysController.getInfo)
 // Rotas dos gateways temporariamente desabilitadas - serão adicionadas depois
 // router.get('/keys/arkama', arkamaKeysController.getArkamaKeys)
 // router.put('/keys/arkama', arkamaKeysController.saveArkamaKeys)

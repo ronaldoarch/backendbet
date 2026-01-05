@@ -9,6 +9,7 @@ import bannerRoutes from './bannerRoutes.js'
 import paymentRoutes from './paymentRoutes.js'
 import providerRoutes from './providerRoutes.js'
 import webhookRoutes from './webhookRoutes.js'
+import migrateRoute from './migrateRoute.js'
 
 const router = express.Router()
 
@@ -32,6 +33,7 @@ router.use('/banners', bannerRoutes)
 router.use('/payments', paymentRoutes)
 router.use('/providers', providerRoutes)
 router.use('/webhooks', webhookRoutes)
+router.use('/migrate', migrateRoute) // ⚠️ Rota temporária para migrações
 
 // Rota alternativa para compatibilidade: /casinos/games -> /games/casinos
 import * as gameController from '../controllers/gameController.js'
